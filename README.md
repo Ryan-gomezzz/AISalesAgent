@@ -73,8 +73,6 @@ npm install
 
 **Create and edit environment files:**
 
-**`backend/.env` - Create this file:**
-
 **`backend/.env` - Required:**
 ```bash
 AWS_ACCESS_KEY_ID=your_aws_access_key_id
