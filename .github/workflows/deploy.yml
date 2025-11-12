@@ -25,7 +25,7 @@ jobs:
       - name: Install backend dependencies
         run: |
           cd backend
-          npm ci
+          npm install
 
       - name: Run backend tests
         run: |
@@ -35,7 +35,7 @@ jobs:
       - name: Install frontend dependencies
         run: |
           cd frontend
-          npm ci
+          npm install
 
       - name: Lint frontend
         run: |
@@ -57,13 +57,13 @@ jobs:
       - name: Build backend
         run: |
           cd backend
-          npm ci
+          npm install
           npm run build
 
       - name: Build frontend
         run: |
           cd frontend
-          npm ci
+          npm install
           npm run build
 
       - name: Upload build artifacts
@@ -105,7 +105,7 @@ jobs:
       - name: Install infrastructure dependencies
         run: |
           cd infra
-          npm ci
+          npm install
 
       - name: Deploy infrastructure
         env:

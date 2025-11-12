@@ -61,9 +61,9 @@ samconfig.toml
 *~
 
 # Package managers
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
+# Note: package-lock.json should be committed for reproducible builds
+# yarn.lock
+# pnpm-lock.yaml
 
 # Demo files
 demo/*.mp4
