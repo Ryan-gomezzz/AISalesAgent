@@ -1,0 +1,43 @@
+.emotion-indicator {
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 14px;
+}
+
+.emotion-header {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #495057;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.emotion-label {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  text-transform: capitalize;
+}
+
+.emotion-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.emotion-metric {
+  display: flex;
+  justify-content: space-between;
+  color: #6c757d;
+}
+
+.emotion-metric span:last-child {
+  font-weight: 500;
+  color: #495057;
+}
+

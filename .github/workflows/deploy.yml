@@ -1,0 +1,147 @@
+name: Deploy AISalesAgent
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ap-south-1
+  NODE_VERSION: '18'
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          npm ci
+
+      - name: Run backend tests
+        run: |
+          cd backend
+          npm test
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Lint frontend
+        run: |
+          cd frontend
+          npm run lint
+
+  build:
+    name: Build
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Build backend
+        run: |
+          cd backend
+          npm ci
+          npm run build
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: |
+            backend/dist
+            frontend/dist
+
+  deploy:
+    name: Deploy to AWS
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-artifacts
+
+      - name: Install Serverless Framework
+        run: npm install -g serverless
+
+      - name: Install infrastructure dependencies
+        run: |
+          cd infra
+          npm ci
+
+      - name: Deploy infrastructure
+        env:
+          FRONTEND_KEY: ${{ secrets.FRONTEND_KEY }}
+          BEDROCK_MODEL: ${{ secrets.BEDROCK_MODEL }}
+          POLLY_VOICE: ${{ secrets.POLLY_VOICE }}
+          COGNITIVE_API_URL: ${{ secrets.COGNITIVE_API_URL }}
+          COGNITIVE_API_KEY: ${{ secrets.COGNITIVE_API_KEY }}
+          USE_REKOGNITION_FALLBACK: ${{ secrets.USE_REKOGNITION_FALLBACK }}
+          CORS_ORIGIN: ${{ secrets.CORS_ORIGIN }}
+        run: |
+          cd infra
+          serverless deploy --stage prod --region ${{ env.AWS_REGION }}
+
+      - name: Get API endpoint
+        id: get-endpoint
+        run: |
+          cd infra
+          API_ENDPOINT=$(serverless info --stage prod --region ${{ env.AWS_REGION }} | grep "ServiceEndpoint" | awk '{print $2}')
+          echo "api_endpoint=$API_ENDPOINT" >> $GITHUB_OUTPUT
+
+      - name: Upload frontend to S3
+        run: |
+          S3_BUCKET=$(cd infra && serverless info --stage prod --region ${{ env.AWS_REGION }} | grep "S3BucketName" | awk '{print $2}')
+          aws s3 sync frontend/dist s3://$S3_BUCKET/frontend --delete --region ${{ env.AWS_REGION }}
+
+      - name: Invalidate CloudFront cache
+        if: env.CLOUDFRONT_ID != ''
+        run: |
+          CLOUDFRONT_ID=$(aws cloudfront list-distributions --query "DistributionList.Items[?Origins.Items[?DomainName=='$S3_BUCKET.s3.${{ env.AWS_REGION }}.amazonaws.com']].Id" --output text --region ${{ env.AWS_REGION }} || echo "")
+          if [ ! -z "$CLOUDFRONT_ID" ]; then
+            aws cloudfront create-invalidation --distribution-id "$CLOUDFRONT_ID" --paths "/*" --region ${{ env.AWS_REGION }}
+          fi
+
+      - name: Deployment summary
+        run: |
+          echo "Deployment completed successfully!"
+          echo "API Endpoint: ${{ steps.get-endpoint.outputs.api_endpoint }}"
+

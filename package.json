@@ -1,0 +1,26 @@
+{
+  "name": "aisalesagent",
+  "version": "1.0.0",
+  "description": "AISalesAgent MVP - AI assistant for chartered accountancy practice",
+  "scripts": {
+    "setup": "bash scripts/setup.sh",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build:backend": "cd backend && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    "test:backend": "cd backend && npm test",
+    "test:frontend": "cd frontend && npm test",
+    "deploy": "bash scripts/deploy.sh"
+  },
+  "keywords": [
+    "ai",
+    "assistant",
+    "bedrock",
+    "polly",
+    "transcribe",
+    "rekognition"
+  ],
+  "author": "",
+  "license": "MIT"
+}
+
