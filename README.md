@@ -71,32 +71,30 @@ npm install
 
 #### 2. Configure Environment Variables
 
-**📚 See [API_KEYS_QUICK_REFERENCE.md](./API_KEYS_QUICK_REFERENCE.md) for a quick setup guide, or [API_KEYS_SETUP.md](./API_KEYS_SETUP.md) for detailed documentation.**
+**Create and edit environment files:**
 
-Create environment files:
+**`backend/.env` - Create this file:**
 
-**Option A: Using the setup script (Windows)**
+**`backend/.env` - Required:**
 ```bash
-# PowerShell
-.\scripts\create-env-files.ps1
+AWS_ACCESS_KEY_ID=your_aws_access_key_id
+AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
+AWS_REGION=ap-south-1
+FRONTEND_KEY=your_secure_random_string
+BEDROCK_MODEL=anthropic.claude-v2
 ```
 
-**Option B: Using the setup script (Linux/Mac)**
+**`frontend/.env` - Required:**
 ```bash
-# Bash
-chmod +x scripts/create-env-files.sh
-./scripts/create-env-files.sh
+VITE_API_BASE_URL=http://localhost:3000
+VITE_FRONTEND_KEY=your_secure_random_string  # Must match backend FRONTEND_KEY
 ```
 
-**Option C: Manual creation**
-1. Create `backend/.env` with your AWS credentials and settings
-2. Create `frontend/.env` with your API base URL
-3. See `API_KEYS_QUICK_REFERENCE.md` for all required variables
-
-**⚠️ Required API Keys:**
-- AWS Access Key ID & Secret Access Key
-- Frontend Key (generate a random string)
-- Enable Bedrock model access in AWS Console
+**⚠️ Important:**
+1. Get AWS credentials from AWS Console → IAM → Users → Security Credentials
+2. Generate a random string for `FRONTEND_KEY` (e.g., `openssl rand -hex 32`)
+3. Enable Bedrock model access: AWS Console → Bedrock → Model Access → Request access
+4. Use the same `FRONTEND_KEY` in both backend and frontend `.env` files
 
 #### 3. Run Backend (Local Express Server)
 
@@ -116,28 +114,9 @@ npm run dev
 
 The frontend will run on `http://localhost:5173` (Vite default).
 
-### Deploy to AWS
+## Deployment Options
 
-See [infra/README.md](./infra/README.md) for detailed deployment instructions.
-
-Quick deploy:
-
-```bash
-# Set up AWS credentials
-export AWS_ACCESS_KEY_ID=your_key
-export AWS_SECRET_ACCESS_KEY=your_secret
-export AWS_REGION=ap-south-1
-
-# Deploy infrastructure
-cd infra
-npm install
-npm run deploy
-
-# Deploy frontend and backend
-cd ../scripts
-chmod +x deploy.sh
-./deploy.sh
-```
+See [SETUP.md](./SETUP.md) for detailed deployment instructions.
 
 ## Testing
 
@@ -192,26 +171,40 @@ AISalesAgent/
 └── README.md
 ```
 
-## Environment Variables
+## Deployment
 
-### Backend
+### Option 1: AWS (Serverless)
 
-See [backend/.env.example](./backend/.env.example) for all backend environment variables.
+**Prerequisites:**
+- AWS CLI configured
+- GitHub Secrets configured (for CI/CD)
 
-Key variables:
-- `BEDROCK_MODEL`: AWS Bedrock model ID (e.g., `anthropic.claude-v2`)
-- `AWS_REGION`: AWS region (e.g., `ap-south-1`)
-- `S3_BUCKET_NAME`: S3 bucket for audio assets
-- `DYNAMODB_TABLE`: DynamoDB table name
-- `COGNITIVE_API_URL`: Optional external Cognitive API endpoint
-- `COGNITIVE_API_KEY`: Optional API key for Cognitive API
+**Deploy:**
+```bash
+cd infra
+npm install
+serverless deploy --stage prod
+```
 
-### Frontend
+**GitHub Secrets (for CI/CD):**
+Add these in GitHub → Settings → Secrets → Actions:
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `FRONTEND_KEY`
+- `CORS_ORIGIN` (optional, e.g., `https://yourdomain.com`)
 
-See [frontend/.env.example](./frontend/.env.example) for all frontend environment variables.
+### Option 2: Vercel (Frontend) + AWS (Backend)
 
-Key variables:
-- `VITE_API_BASE_URL`: Backend API base URL
+**Frontend on Vercel:**
+1. Connect GitHub repository to Vercel
+2. Set environment variables in Vercel:
+   - `VITE_API_BASE_URL` (your backend API URL)
+   - `VITE_FRONTEND_KEY`
+3. Deploy
+
+**Backend on AWS:**
+- Deploy backend separately using Serverless Framework
+- Update frontend `VITE_API_BASE_URL` with AWS API Gateway URL
 
 ## Features
 
@@ -243,33 +236,20 @@ Key variables:
 
 ## Troubleshooting
 
-### Common Issues
+**Common Issues:**
+1. **Web Speech API not working**: Use Chrome/Edge and HTTPS (or localhost)
+2. **Bedrock access denied**: Enable model access in AWS Bedrock console
+3. **CORS errors**: Check `CORS_ORIGIN` in backend `.env`
+4. **npm ci fails**: Use `npm install` instead (lock files are now committed)
 
-1. **Web Speech API not working**: Ensure you're using a supported browser (Chrome, Edge) and HTTPS (or localhost)
-2. **Bedrock access denied**: Verify IAM permissions and model access in AWS Bedrock console
-3. **CORS errors**: Check API Gateway CORS configuration and frontend origin
-4. **Transcribe job fails**: Verify S3 bucket permissions and Transcribe IAM role
+## Next Steps
 
-### Debug Mode
-
-Set `NODE_ENV=development` and `DEBUG=true` for detailed logs.
-
-## Future Improvements
-
-- [ ] Streaming Transcribe integration
-- [ ] Cognito authentication
-- [ ] CloudWatch alarms and monitoring
-- [ ] Multi-language support
-- [ ] Conversation export
-- [ ] Admin dashboard
-- [ ] Rate limiting
-- [ ] WebSocket support for real-time streaming
+1. **Local Development**: Follow [SETUP.md](./SETUP.md) to run locally
+2. **AWS Deployment**: Deploy backend using Serverless Framework
+3. **Vercel Deployment**: Deploy frontend to Vercel (connect GitHub repo)
+4. **GitHub Secrets**: Add secrets for CI/CD (only if using GitHub Actions)
 
 ## License
 
 MIT
-
-## Support
-
-For issues and questions, please open an issue in the repository.
 
