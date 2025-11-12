@@ -71,17 +71,32 @@ npm install
 
 #### 2. Configure Environment Variables
 
-Copy the example environment files and configure:
+**📚 See [API_KEYS_QUICK_REFERENCE.md](./API_KEYS_QUICK_REFERENCE.md) for a quick setup guide, or [API_KEYS_SETUP.md](./API_KEYS_SETUP.md) for detailed documentation.**
 
+Create environment files:
+
+**Option A: Using the setup script (Windows)**
 ```bash
-# Backend
-cp backend/.env.example backend/.env
-# Edit backend/.env with your AWS credentials and settings
-
-# Frontend
-cp frontend/.env.example frontend/.env
-# Edit frontend/.env with your API base URL
+# PowerShell
+.\scripts\create-env-files.ps1
 ```
+
+**Option B: Using the setup script (Linux/Mac)**
+```bash
+# Bash
+chmod +x scripts/create-env-files.sh
+./scripts/create-env-files.sh
+```
+
+**Option C: Manual creation**
+1. Create `backend/.env` with your AWS credentials and settings
+2. Create `frontend/.env` with your API base URL
+3. See `API_KEYS_QUICK_REFERENCE.md` for all required variables
+
+**⚠️ Required API Keys:**
+- AWS Access Key ID & Secret Access Key
+- Frontend Key (generate a random string)
+- Enable Bedrock model access in AWS Console
 
 #### 3. Run Backend (Local Express Server)
 
