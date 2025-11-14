@@ -112,9 +112,16 @@ npm run dev
 
 The frontend will run on `http://localhost:5173` (Vite default).
 
-## Deployment Options
+## Deployment
 
-See [SETUP.md](./SETUP.md) for detailed deployment instructions.
+**📚 Complete step-by-step guide: [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)**
+
+Quick summary:
+1. **AWS Backend**: Deploy using Serverless Framework
+2. **Vercel Frontend**: Connect GitHub repo and deploy
+3. **GitHub Actions**: Add secrets for automatic deployment
+
+See [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for detailed instructions.
 
 ## Testing
 
