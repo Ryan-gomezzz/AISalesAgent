@@ -37,12 +37,28 @@ const EmotionIndicator: React.FC<EmotionIndicatorProps> = ({ emotion }) => {
       </div>
       <div className="emotion-metrics">
         <div className="emotion-metric">
-          <span>Valence:</span>
-          <span>{emotion.valence.toFixed(2)}</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: '4px' }}>
+            <span className="emotion-metric-label">Valence:</span>
+            <span className="emotion-metric-value">{emotion.valence.toFixed(2)}</span>
+          </div>
+          <div className="emotion-bar">
+            <div 
+              className="emotion-bar-fill" 
+              style={{ width: `${((emotion.valence + 1) / 2) * 100}%` }}
+            />
+          </div>
         </div>
         <div className="emotion-metric">
-          <span>Arousal:</span>
-          <span>{emotion.arousal.toFixed(2)}</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: '4px' }}>
+            <span className="emotion-metric-label">Arousal:</span>
+            <span className="emotion-metric-value">{emotion.arousal.toFixed(2)}</span>
+          </div>
+          <div className="emotion-bar">
+            <div 
+              className="emotion-bar-fill" 
+              style={{ width: `${((emotion.arousal + 1) / 2) * 100}%` }}
+            />
+          </div>
         </div>
       </div>
     </div>

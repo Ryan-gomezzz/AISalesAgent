@@ -1,104 +1,193 @@
 .control-panel {
-  border-top: 1px solid #ddd;
-  background-color: #fff;
-  padding: 16px;
+  border-top: 2px solid var(--border-color);
+  background: linear-gradient(to top, #ffffff 0%, #f8fafc 100%);
+  padding: var(--spacing-lg);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--spacing-md);
+  box-shadow: 0 -4px 6px -1px rgb(0 0 0 / 0.05);
 }
 
 .control-buttons {
   display: flex;
-  gap: 8px;
+  gap: var(--spacing-sm);
   flex-wrap: wrap;
   align-items: center;
 }
 
 .control-button {
-  padding: 8px 16px;
-  background-color: #f8f9fa;
-  color: #495057;
-  border: 1px solid #dee2e6;
-  border-radius: 4px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  color: var(--text-secondary);
+  border: 2px solid var(--border-color);
+  border-radius: var(--border-radius);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-base);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  overflow: hidden;
+}
+
+.control-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left var(--transition-slow);
+}
+
+.control-button:hover:not(:disabled)::before {
+  left: 100%;
 }
 
 .control-button:hover:not(:disabled) {
-  background-color: #e9ecef;
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  border-color: var(--primary-light);
+  color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
 }
 
 .control-button.active {
-  background-color: #007bff;
-  color: #fff;
-  border-color: #007bff;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: var(--text-inverse);
+  border-color: var(--primary);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
 }
 
 .control-button.active:hover:not(:disabled) {
-  background-color: #0056b3;
+  background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.5);
 }
 
 .control-toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
   user-select: none;
+  padding: 8px 12px;
+  border-radius: var(--border-radius);
+  transition: background var(--transition-base);
+  color: var(--text-secondary);
+}
+
+.control-toggle:hover {
+  background: var(--bg-secondary);
+  background: rgba(99, 102, 241, 0.05);
 }
 
 .control-toggle input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
   cursor: pointer;
+  accent-color: var(--primary);
+  border-radius: 4px;
 }
 
 .transcript-indicator {
-  padding: 8px 12px;
-  background-color: #e7f3ff;
-  border: 1px solid #b3d9ff;
-  border-radius: 4px;
-  font-size: 12px;
-  color: #0066cc;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  border: 2px solid #93c5fd;
+  border-radius: var(--border-radius);
+  font-size: 13px;
+  color: var(--primary-dark);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: pulse 2s infinite;
+}
+
+.transcript-indicator::before {
+  content: '🎤';
+  font-size: 16px;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 
 .input-container {
   display: flex;
-  gap: 8px;
+  gap: var(--spacing-sm);
+  align-items: center;
 }
 
 .text-input {
   flex: 1;
-  padding: 10px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
+  padding: 14px 18px;
+  border: 2px solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-size: 15px;
+  background: var(--bg-card);
+  transition: all var(--transition-base);
+  resize: none;
 }
 
 .text-input:focus {
   outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+  background: #ffffff;
 }
 
 .send-button {
-  padding: 10px 24px;
-  background-color: #007bff;
-  color: #fff;
+  padding: 14px 28px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: var(--text-inverse);
   border: none;
-  border-radius: 4px;
-  font-size: 14px;
-  font-weight: 500;
+  border-radius: var(--border-radius);
+  font-size: 15px;
+  font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all var(--transition-base);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 100px;
+  justify-content: center;
+}
+
+.send-button::after {
+  content: '→';
+  font-size: 18px;
+  transition: transform var(--transition-base);
 }
 
 .send-button:hover:not(:disabled) {
-  background-color: #0056b3;
+  background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
+}
+
+.send-button:hover:not(:disabled)::after {
+  transform: translateX(2px);
+}
+
+.send-button:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .send-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  box-shadow: none;
 }
-

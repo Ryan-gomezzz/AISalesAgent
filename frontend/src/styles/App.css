@@ -3,12 +3,19 @@
   flex-direction: column;
   height: 100vh;
   width: 100%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background-attachment: fixed;
 }
 
 .app-container {
   display: flex;
   flex: 1;
   overflow: hidden;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  max-width: 1600px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .app-left {
@@ -16,27 +23,48 @@
   flex-direction: column;
   flex: 1;
   min-width: 0;
+  background: var(--bg-card);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.95);
 }
 
 .app-right {
   display: flex;
   flex-direction: column;
-  width: 300px;
-  border-left: 1px solid #ddd;
-  background-color: #fff;
-  padding: 16px;
-  gap: 16px;
+  width: 380px;
+  gap: var(--spacing-md);
+  flex-shrink: 0;
+}
+
+@media (max-width: 1024px) {
+  .app-right {
+    width: 320px;
+  }
 }
 
 @media (max-width: 768px) {
   .app-container {
     flex-direction: column;
+    padding: var(--spacing-sm);
+    gap: var(--spacing-sm);
+  }
+
+  .app-left {
+    flex: 1;
+    min-height: 0;
   }
 
   .app-right {
     width: 100%;
-    border-left: none;
-    border-top: 1px solid #ddd;
+    max-height: 300px;
   }
 }
 
+@media (max-width: 480px) {
+  .app-container {
+    padding: var(--spacing-xs);
+  }
+}
