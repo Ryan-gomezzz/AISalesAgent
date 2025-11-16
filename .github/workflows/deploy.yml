@@ -71,16 +71,18 @@ jobs:
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
+        if: success()
         with:
           name: build-artifacts
           path: |
             backend/dist
             frontend/dist
+          if-no-files-found: error
 
   deploy:
     name: Deploy to AWS
     needs: build
-    if: always() && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && needs.build.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -101,6 +103,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: build-artifacts
+          if-no-files-found: error
 
       - name: Install Serverless Framework
         run: npm install -g serverless
