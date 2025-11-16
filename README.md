@@ -1,5 +1,7 @@
 # AISalesAgent MVP
 
+# ci test
+
 A web prototype that provides a voice + text AI assistant UI for a chartered accountancy practice. The system uses AWS Bedrock for LLM capabilities, Amazon Transcribe for speech-to-text, Amazon Polly for text-to-speech, and AWS Rekognition (or an external Cognitive API) for emotion analysis.
 
 ## Project Description
