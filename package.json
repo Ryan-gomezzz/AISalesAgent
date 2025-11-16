@@ -10,6 +10,8 @@
     "build:frontend": "cd frontend && npm run build",
     "test:backend": "cd backend && npm test",
     "test:frontend": "cd frontend && npm test",
+    "prepare:lambda": "node scripts/prepare-lambda.js",
+    "deploy:backend": "npm run build:backend && npm run prepare:lambda && npx serverless deploy --stage prod",
     "deploy": "bash scripts/deploy.sh"
   },
   "keywords": [
@@ -21,6 +23,11 @@
     "rekognition"
   ],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "esbuild": "^0.25.12",
+    "serverless": "^3.40.0",
+    "serverless-esbuild": "^1.55.2",
+    "serverless-offline": "^13.9.0"
+  }
 }
-

@@ -11,7 +11,7 @@ import {
 } from '@aws-sdk/client-s3'
 import { v4 as uuidv4 } from 'uuid'
 
-const transcribeClient = new TranscribeClient({
+const awsTranscribeClient = new TranscribeClient({
   region: process.env.AWS_REGION || 'ap-south-1',
 })
 
@@ -54,7 +54,7 @@ export const startTranscriptionJob = async (
       Media: {
         MediaFileUri: s3Uri,
       },
-      MediaFormat: mediaFormat,
+      MediaFormat: mediaFormat as any,
       LanguageCode: 'en-US',
       OutputBucketName: BUCKET_NAME,
       OutputKey: `transcribe-output/${jobId}.json`,
@@ -65,7 +65,7 @@ export const startTranscriptionJob = async (
       ...(TRANSCRIBE_ROLE_ARN && { IdentityRoleArn: TRANSCRIBE_ROLE_ARN }),
     })
 
-    await transcribeClient.send(startCommand)
+    await awsTranscribeClient.send(startCommand)
 
     return { jobId, s3Key }
   } catch (error: any) {
@@ -87,7 +87,7 @@ export const getTranscriptionResult = async (
       TranscriptionJobName: jobId,
     })
 
-    const response = await transcribeClient.send(command)
+    const response = await awsTranscribeClient.send(command)
     const job = response.TranscriptionJob
 
     if (!job) {
@@ -146,7 +146,7 @@ export const waitForTranscription = async (
         TranscriptionJobName: jobId,
       })
 
-      const response = await transcribeClient.send(command)
+      const response = await awsTranscribeClient.send(command)
       const job = response.TranscriptionJob
 
       if (!job) {

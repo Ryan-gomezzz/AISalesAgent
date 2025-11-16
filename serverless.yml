@@ -1,7 +1,5 @@
 service: aisalesagent
 
-frameworkVersion: '3'
-
 provider:
   name: aws
   runtime: nodejs18.x
@@ -11,6 +9,7 @@ provider:
   timeout: 30
   environment:
     NODE_ENV: production
+    NODE_PATH: /var/task/backend/node_modules:/var/task/backend/dist
     FRONTEND_KEY: ${env:FRONTEND_KEY, 'dev-key'}
     BEDROCK_MODEL: ${env:BEDROCK_MODEL, 'anthropic.claude-v2'}
     MOCK_BEDROCK: ${env:MOCK_BEDROCK, 'false'}
@@ -75,17 +74,11 @@ custom:
   dynamoDBTable: ${self:service}-conversations-${self:provider.stage}
   transcribeRoleArn: arn:aws:iam::${aws:accountId}:role/${self:service}-transcribe-role-${self:provider.stage}
 
-package:
-  patterns:
-    - 'node_modules/**'
-    - '!src/**'
-    - 'dist/**'
-    - 'prompts/**'
-  excludeDevDependencies: false
 
 functions:
   api:
-    handler: dist/index.serverless.handler
+    handler: index.handler
+    runtime: nodejs18.x
     events:
       - http:
           path: /api/{proxy+}
@@ -200,4 +193,26 @@ resources:
 
 plugins:
   - serverless-offline
+
+package:
+  patterns:
+    - 'index.js'
+    - 'handlers/**'
+    - 'services/**'
+    - 'utils/**'
+    - 'backend/node_modules/**'
+    - 'prompts/**'
+    - 'backend/prompts/**'
+    - '!backend/src/**'
+    - '!backend/dist/**'
+    - '!frontend/**'
+    - '!infra/**'
+    - '!demo/**'
+    - '!scripts/**'
+    - '!*.md'
+    - '!.git/**'
+    - '!.github/**'
+    - '!node_modules/**'
+  excludeDevDependencies: true
+  individually: false
 

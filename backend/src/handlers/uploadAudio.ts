@@ -19,7 +19,7 @@ export const uploadAudioHandler = async (
     }
 
     // Get audio file from request
-    const audioFile = req.file || (req.body as any).audio
+    const audioFile = (req as any).file || (req.body as any).audio
     if (!audioFile) {
       return res.status(400).json({
         status: 'error',

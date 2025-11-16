@@ -77,3 +77,9 @@ frontend/build/
 # Backend build
 backend/dist/
 backend/build/
+
+# Lambda deployment files (copied to root for packaging)
+index.js
+handlers/
+services/
+utils/
