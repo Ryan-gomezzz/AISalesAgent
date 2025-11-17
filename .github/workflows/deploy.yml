@@ -126,20 +126,74 @@ jobs:
       - name: Get API endpoint
         id: get-endpoint
         run: |
-          API_ENDPOINT=$(npx serverless info --stage prod --region ${{ env.AWS_REGION }} | grep "ServiceEndpoint" | awk '{print $2}')
-          echo "api_endpoint=$API_ENDPOINT" >> $GITHUB_OUTPUT
+          SERVERLESS_INFO=$(npx serverless info --stage prod --region ${{ env.AWS_REGION }} || true)
+          echo "$SERVERLESS_INFO"
+          API_ENDPOINT=$(printf "%s\n" "$SERVERLESS_INFO" | grep -i -E 'ServiceEndpoint[: ]+' | awk '{print $2}' | tr -d '\r' | head -n1 || true)
+          if [ -z "$API_ENDPOINT" ]; then
+            echo "Warning: Could not extract API endpoint from serverless info"
+          else
+            echo "api_endpoint=$API_ENDPOINT" >> $GITHUB_OUTPUT
+            echo "API Endpoint: $API_ENDPOINT"
+          fi
 
       - name: Upload frontend to S3
         run: |
-          S3_BUCKET=$(npx serverless info --stage prod --region ${{ env.AWS_REGION }} | grep "S3BucketName" | awk '{print $2}')
+          # Get serverless info output for debugging
+          SERVERLESS_INFO=$(npx serverless info --stage prod --region ${{ env.AWS_REGION }} || true)
+          echo "=== Serverless Info Output ==="
+          echo "$SERVERLESS_INFO"
+          echo "=============================="
+          
+          # Try to parse S3 bucket from serverless info (robust parsing + strip CR)
+          S3_BUCKET=$(printf "%s\n" "$SERVERLESS_INFO" | grep -i -E 'S3Bucket(Name)?[: ]+' | awk '{print $2}' | tr -d '\r' | head -n1 || true)
+          
+          # Fallback: get Stack Name from serverless info, then query CloudFormation outputs
+          if [ -z "$S3_BUCKET" ]; then
+            STACK_NAME=$(printf "%s\n" "$SERVERLESS_INFO" | awk -F': ' '/Stack/ {print $2; exit}' | tr -d '\r')
+            if [ -n "$STACK_NAME" ]; then
+              echo "Attempting to get S3 bucket from CloudFormation stack: $STACK_NAME"
+              S3_BUCKET=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region ${{ env.AWS_REGION }} --query "Stacks[0].Outputs[?contains(OutputKey,'S3') || contains(OutputKey,'Bucket')].OutputValue" --output text || true)
+              S3_BUCKET=$(printf "%s\n" "$S3_BUCKET" | head -n1 | tr -d '\r')
+            fi
+          fi
+          
+          # Final check: fail if bucket name is still empty
+          if [ -z "$S3_BUCKET" ]; then
+            echo "Error: could not determine S3 bucket name. Dumping serverless info above. Aborting." >&2
+            exit 1
+          fi
+          
+          echo "Uploading frontend to s3://$S3_BUCKET/frontend"
           aws s3 sync frontend/dist s3://$S3_BUCKET/frontend --delete --region ${{ env.AWS_REGION }}
 
-      - name: Invalidate CloudFront cache
-        if: env.CLOUDFRONT_ID != ''
+      - name: Invalidate CloudFront cache (if any)
         run: |
-          CLOUDFRONT_ID=$(aws cloudfront list-distributions --query "DistributionList.Items[?Origins.Items[?DomainName=='$S3_BUCKET.s3.${{ env.AWS_REGION }}.amazonaws.com']].Id" --output text --region ${{ env.AWS_REGION }} || echo "")
-          if [ ! -z "$CLOUDFRONT_ID" ]; then
+          # Get S3 bucket name again (from previous step's logic)
+          SERVERLESS_INFO=$(npx serverless info --stage prod --region ${{ env.AWS_REGION }} || true)
+          S3_BUCKET=$(printf "%s\n" "$SERVERLESS_INFO" | grep -i -E 'S3Bucket(Name)?[: ]+' | awk '{print $2}' | tr -d '\r' | head -n1 || true)
+          
+          if [ -z "$S3_BUCKET" ]; then
+            STACK_NAME=$(printf "%s\n" "$SERVERLESS_INFO" | awk -F': ' '/Stack/ {print $2; exit}' | tr -d '\r')
+            if [ -n "$STACK_NAME" ]; then
+              S3_BUCKET=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region ${{ env.AWS_REGION }} --query "Stacks[0].Outputs[?contains(OutputKey,'S3') || contains(OutputKey,'Bucket')].OutputValue" --output text || true)
+              S3_BUCKET=$(printf "%s\n" "$S3_BUCKET" | head -n1 | tr -d '\r')
+            fi
+          fi
+          
+          if [ -z "$S3_BUCKET" ]; then
+            echo "Warning: Could not determine S3 bucket name for CloudFront lookup"
+            exit 0
+          fi
+          
+          # Try to find CloudFront distribution referencing the bucket
+          CLOUDFRONT_ID=$(aws cloudfront list-distributions --region ${{ env.AWS_REGION }} --query "DistributionList.Items[?Origins.Items[?DomainName=='$S3_BUCKET.s3.${{ env.AWS_REGION }}.amazonaws.com']].Id" --output text || true)
+          CLOUDFRONT_ID=$(printf "%s\n" "$CLOUDFRONT_ID" | head -n1 | tr -d '\r')
+          
+          if [ -n "$CLOUDFRONT_ID" ] && [ "$CLOUDFRONT_ID" != "None" ]; then
+            echo "Creating CloudFront invalidation for distribution $CLOUDFRONT_ID"
             aws cloudfront create-invalidation --distribution-id "$CLOUDFRONT_ID" --paths "/*" --region ${{ env.AWS_REGION }}
+          else
+            echo "No CloudFront distribution found for bucket $S3_BUCKET; skipping invalidation"
           fi
 
       - name: Deployment summary
