@@ -9,7 +9,8 @@ export const useConversation = (sessionId: string) => {
   const sendMessage = useCallback(
     async (
       text: string,
-      emotion?: { label: string; valence: number; arousal: number }
+      emotion?: { label: string; valence: number; arousal: number },
+      selectedProduct?: 'accountancy' | 'soil' | 'ai-receptionist' | null
     ) => {
       // Add user message immediately
       const userMessage: Message = {
@@ -27,6 +28,7 @@ export const useConversation = (sessionId: string) => {
           text,
           sessionId,
           emotion,
+          selectedProduct,
           recentMessages: messages.slice(-4).map((m) => ({
             text: m.text,
             sender: m.sender,

@@ -25,6 +25,7 @@ export interface ConverseRequest {
     timestamp: string
   }>
   clientContext?: any
+  selectedProduct?: 'accountancy' | 'soil' | 'ai-receptionist' | null
 }
 
 export interface ConverseResponse {

@@ -4,9 +4,11 @@ import VideoPreview from './components/VideoPreview'
 import ControlPanel from './components/ControlPanel'
 import EmotionIndicator from './components/EmotionIndicator'
 import Disclaimer from './components/Disclaimer'
+import ProductSelector, { ProductOption } from './components/ProductSelector'
 import { useConversation } from './hooks/useConversation'
 import { useSpeechRecognition } from './hooks/useSpeechRecognition'
 import { useEmotionDetection } from './hooks/useEmotionDetection'
+import { useTextToSpeech } from './hooks/useTextToSpeech'
 import './styles/App.css'
 
 const App: React.FC = () => {
@@ -14,6 +16,7 @@ const App: React.FC = () => {
   const [isVideoEnabled, setIsVideoEnabled] = useState(false)
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false)
   const [useTranscribe, setUseTranscribe] = useState(false)
+  const [selectedProduct, setSelectedProduct] = useState<ProductOption>(null)
   const [currentEmotion, setCurrentEmotion] = useState<{
     label: string
     valence: number
@@ -27,6 +30,7 @@ const App: React.FC = () => {
   const { messages, sendMessage, isLoading } = useConversation(sessionId)
   const { isListening, transcript, startListening, stopListening } = useSpeechRecognition()
   const { detectEmotion } = useEmotionDetection()
+  const { speak, stop: stopSpeaking, isSpeaking } = useTextToSpeech()
 
   // Handle video stream
   useEffect(() => {
@@ -111,10 +115,21 @@ const App: React.FC = () => {
     }
   }, [transcript, isListening])
 
+  // Auto-speak AI responses
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1]
+    if (lastMessage && lastMessage.sender === 'agent' && lastMessage.text) {
+      // Stop any ongoing speech
+      stopSpeaking()
+      // Speak the new message
+      speak(lastMessage.text)
+    }
+  }, [messages, speak, stopSpeaking])
+
   const handleSendMessage = async (text: string, emotion?: typeof currentEmotion) => {
     if (!text.trim()) return
 
-    await sendMessage(text, emotion || currentEmotion || undefined)
+    await sendMessage(text, emotion || currentEmotion || undefined, selectedProduct)
   }
 
   const handleToggleVideo = () => {
@@ -130,6 +145,13 @@ const App: React.FC = () => {
       <Disclaimer />
       <div className="app-container">
         <div className="app-left">
+          {messages.length === 0 && (
+            <ProductSelector
+              selectedProduct={selectedProduct}
+              onSelectProduct={setSelectedProduct}
+              disabled={isLoading}
+            />
+          )}
           <ChatArea messages={messages} isLoading={isLoading} />
           <ControlPanel
             onSendMessage={(text) => handleSendMessage(text, currentEmotion || undefined)}
@@ -141,6 +163,8 @@ const App: React.FC = () => {
             onToggleTranscribe={() => setUseTranscribe(!useTranscribe)}
             isListening={isListening}
             transcript={transcript}
+            isSpeaking={isSpeaking}
+            onStopSpeaking={stopSpeaking}
           />
         </div>
         <div className="app-right">

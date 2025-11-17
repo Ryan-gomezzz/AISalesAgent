@@ -41,18 +41,18 @@
 }
 
 .message-user .message-content {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
   color: var(--text-inverse);
   border-bottom-right-radius: 6px;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 4px 12px var(--primary-glow), 0 0 20px var(--primary-glow);
 }
 
 .message-agent .message-content {
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
   color: var(--text-primary);
   border-bottom-left-radius: 6px;
-  border: 1px solid var(--border-color);
-  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(59, 130, 246, 0.1);
 }
 
 .message-content p {
@@ -64,11 +64,12 @@
 }
 
 .message-content code {
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.3);
   padding: 2px 6px;
   border-radius: 4px;
   font-family: 'Monaco', 'Courier New', monospace;
   font-size: 0.9em;
+  color: var(--accent);
 }
 
 .message-user .message-content code {
@@ -80,7 +81,7 @@
   margin-top: 12px;
   height: 40px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.2);
   padding: 4px;
 }
 

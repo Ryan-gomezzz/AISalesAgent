@@ -11,6 +11,8 @@ interface ControlPanelProps {
   onToggleTranscribe: () => void
   isListening: boolean
   transcript: string
+  isSpeaking?: boolean
+  onStopSpeaking?: () => void
 }
 
 const ControlPanel: React.FC<ControlPanelProps> = ({
@@ -23,6 +25,8 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   onToggleTranscribe,
   isListening,
   transcript,
+  isSpeaking = false,
+  onStopSpeaking,
 }) => {
   const [textInput, setTextInput] = useState('')
 
@@ -72,6 +76,18 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
       {isListening && (
         <div className="transcript-indicator" role="status" aria-live="polite">
           Listening... {transcript && `(${transcript})`}
+        </div>
+      )}
+      {isSpeaking && onStopSpeaking && (
+        <div className="speaking-indicator" role="status" aria-live="polite">
+          <span>AI is speaking...</span>
+          <button
+            onClick={onStopSpeaking}
+            className="stop-speaking-button"
+            aria-label="Stop speaking"
+          >
+            Stop
+          </button>
         </div>
       )}
       <div className="input-container">

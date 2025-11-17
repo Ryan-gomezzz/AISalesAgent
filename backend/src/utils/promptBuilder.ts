@@ -14,6 +14,7 @@ interface PromptContext {
     arousal: number
   }
   clientContext?: any
+  selectedProduct?: 'accountancy' | 'soil' | 'ai-receptionist' | null
 }
 
 /**
@@ -87,8 +88,19 @@ export const buildPrompt = (context: PromptContext): string => {
     clientContext = `\n\nCLIENT_CONTEXT: ${JSON.stringify(context.clientContext)}`
   }
 
+  // Build product context
+  let productContext = ''
+  if (context.selectedProduct) {
+    const productNames: Record<string, string> = {
+      'accountancy': 'Chartered Accountancy Services for Startups',
+      'soil': 'SOIL - AI-Powered Business Scaling Platform',
+      'ai-receptionist': 'AI Receptionist Solution',
+    }
+    productContext = `\n\nSELECTED_PRODUCT: The user is interested in "${productNames[context.selectedProduct]}". Focus your responses on this product/service, highlighting relevant benefits and features.`
+  }
+
   // Build full prompt
-  const fullPrompt = `${systemPrompt}${conversationHistory}${emotionSnapshot}${clientContext}
+  const fullPrompt = `${systemPrompt}${conversationHistory}${emotionSnapshot}${clientContext}${productContext}
 
 User: ${context.userMessage}
 

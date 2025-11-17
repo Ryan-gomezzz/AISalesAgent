@@ -19,6 +19,7 @@ interface ConverseRequest {
     timestamp: string
   }>
   clientContext?: any
+  selectedProduct?: 'accountancy' | 'soil' | 'ai-receptionist' | null
 }
 
 export const converseHandler = async (
@@ -33,12 +34,23 @@ export const converseHandler = async (
       emotion,
       recentMessages = [],
       clientContext,
+      selectedProduct,
     }: ConverseRequest = req.body
 
+    // Validate and sanitize input
     if (!text || !text.trim()) {
       return res.status(400).json({
         status: 'error',
         message: 'Text is required',
+      })
+    }
+
+    // Sanitize text input (remove excessive whitespace, limit length)
+    const sanitizedText = text.trim().slice(0, 5000) // Max 5000 characters
+    if (sanitizedText.length === 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Text cannot be empty',
       })
     }
 
@@ -54,10 +66,11 @@ export const converseHandler = async (
 
     // Build prompt with context and emotion
     const prompt = buildPrompt({
-      userMessage: text,
-      recentMessages,
+      userMessage: sanitizedText,
+      recentMessages: recentMessages?.slice(0, 10) || [], // Limit to last 10 messages
       emotion,
       clientContext,
+      selectedProduct,
     })
 
     // Invoke Bedrock model
@@ -66,21 +79,32 @@ export const converseHandler = async (
       temperature: 0.7,
     })
 
-    // Synthesize speech
-    const audioResult = await pollyClient.synthesizeSpeech(responseText, {
-      returnBase64: false, // Return S3 URL for production
-    })
+    // Synthesize speech (with error handling)
+    let audioResult: { audioUrl?: string; audioBase64?: string } = { audioUrl: undefined }
+    try {
+      audioResult = await pollyClient.synthesizeSpeech(responseText, {
+        returnBase64: false, // Return S3 URL for production
+      })
+    } catch (pollyError) {
+      console.error('Error synthesizing speech:', pollyError)
+      // Continue without audio - don't break the conversation
+    }
 
     // Save conversation to DynamoDB
     const messageId = uuidv4()
-    await saveConversation({
-      sessionId,
-      messageId,
-      userMessage: text,
-      agentMessage: responseText,
-      emotion,
-      timestamp: new Date().toISOString(),
-    })
+    try {
+      await saveConversation({
+        sessionId: sessionId.slice(0, 200), // Limit sessionId length
+        messageId,
+        userMessage: sanitizedText,
+        agentMessage: responseText?.slice(0, 10000) || '', // Limit response length
+        emotion,
+        timestamp: new Date().toISOString(),
+      })
+    } catch (dbError) {
+      console.error('Error saving conversation:', dbError)
+      // Continue even if DB save fails - don't break the user experience
+    }
 
     // Return response
     res.json({

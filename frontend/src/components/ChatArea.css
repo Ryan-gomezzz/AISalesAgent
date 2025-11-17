@@ -3,7 +3,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: linear-gradient(to bottom, #f8fafc 0%, #ffffff 100%);
+  background: linear-gradient(to bottom, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
   position: relative;
 }
 
@@ -14,7 +14,7 @@
   left: 0;
   right: 0;
   height: 80px;
-  background: linear-gradient(to bottom, rgba(99, 102, 241, 0.05), transparent);
+  background: linear-gradient(to bottom, var(--primary-glow), transparent);
   pointer-events: none;
   z-index: 0;
 }
@@ -62,20 +62,20 @@
   display: flex;
   gap: 6px;
   padding: 16px 20px;
-  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
   border-radius: 20px;
   width: fit-content;
   box-shadow: var(--shadow-sm);
-  border: 1px solid var(--border-color);
+  border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
 .typing-indicator span {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
   animation: typing 1.4s infinite ease-in-out;
-  box-shadow: 0 2px 4px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 2px 4px var(--primary-glow);
 }
 
 .typing-indicator span:nth-child(1) {
