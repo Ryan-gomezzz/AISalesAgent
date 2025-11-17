@@ -80,7 +80,7 @@ jobs:
   deploy:
     name: Deploy to AWS
     needs: build
-    if: always() && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && needs.build.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
