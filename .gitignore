@@ -83,3 +83,6 @@ index.js
 handlers/
 services/
 utils/
+dist/
+.esbuild/
+.serverless-hooks.js
