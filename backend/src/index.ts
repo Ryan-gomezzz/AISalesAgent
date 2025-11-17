@@ -12,9 +12,44 @@ dotenv.config()
 const app = express()
 const PORT = process.env.PORT || 3000
 
+// CORS configuration - allow Vercel domains and configured origin
+const allowedOrigins = [
+  'https://ai-sales-agent-theta.vercel.app',
+  'https://ai-sales-agent-*.vercel.app',
+  process.env.CORS_ORIGIN,
+].filter(Boolean)
+
 // Middleware
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true)
+    
+    // Check if origin matches allowed patterns
+    if (allowedOrigins.includes('*')) {
+      return callback(null, true)
+    }
+    
+    // Check exact matches
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true)
+    }
+    
+    // Check wildcard patterns (for Vercel preview deployments)
+    const isAllowed = allowedOrigins.some(allowed => {
+      if (allowed?.includes('*')) {
+        const pattern = allowed.replace(/\*/g, '.*')
+        return new RegExp(`^${pattern}$`).test(origin)
+      }
+      return false
+    })
+    
+    if (isAllowed || origin.includes('.vercel.app')) {
+      return callback(null, true)
+    }
+    
+    callback(new Error('Not allowed by CORS'))
+  },
   credentials: true,
   allowedHeaders: ['Content-Type', 'x-frontend-key', 'X-Frontend-Key', 'Authorization'],
   exposedHeaders: ['Content-Type'],
@@ -33,7 +68,12 @@ app.use((req, res, next) => {
 
 // Handle OPTIONS requests for CORS preflight
 app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', process.env.CORS_ORIGIN || '*')
+  const origin = req.headers.origin
+  const allowedOrigin = origin && (origin.includes('.vercel.app') || allowedOrigins.includes(origin) || allowedOrigins.includes('*'))
+    ? origin
+    : allowedOrigins[0] || '*'
+  
+  res.header('Access-Control-Allow-Origin', allowedOrigin)
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
   res.header('Access-Control-Allow-Headers', 'Content-Type, x-frontend-key, X-Frontend-Key, Authorization')
   res.header('Access-Control-Allow-Credentials', 'true')

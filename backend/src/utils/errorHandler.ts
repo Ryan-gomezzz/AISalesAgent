@@ -16,6 +16,26 @@ export const errorHandler = (
 
   console.error('Error:', err)
 
+  // Set CORS headers for error responses
+  const origin = req.headers.origin
+  const allowedOrigins = [
+    'https://ai-sales-agent-theta.vercel.app',
+    process.env.CORS_ORIGIN,
+  ].filter(Boolean)
+  
+  if (origin && (origin.includes('.vercel.app') || allowedOrigins.includes(origin) || allowedOrigins.includes('*'))) {
+    res.header('Access-Control-Allow-Origin', origin)
+    res.header('Access-Control-Allow-Credentials', 'true')
+  } else if (allowedOrigins.length > 0 && !allowedOrigins.includes('*')) {
+    res.header('Access-Control-Allow-Origin', allowedOrigins[0])
+    res.header('Access-Control-Allow-Credentials', 'true')
+  } else {
+    res.header('Access-Control-Allow-Origin', '*')
+  }
+  
+  res.header('Access-Control-Allow-Headers', 'Content-Type, x-frontend-key, X-Frontend-Key, Authorization')
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+
   res.status(statusCode).json({
     status,
     message: err.message || 'Internal server error',

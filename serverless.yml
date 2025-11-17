@@ -84,7 +84,7 @@ functions:
           path: /api/{proxy+}
           method: ANY
           cors:
-            origin: ${env:CORS_ORIGIN, '*'}
+            origin: '*'
             headers:
               - Content-Type
               - x-frontend-key

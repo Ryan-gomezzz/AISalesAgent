@@ -45,11 +45,24 @@ export const useConversation = (sessionId: string) => {
         }
 
         setMessages((prev) => [...prev, agentMessage])
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error sending message:', error)
+        let errorText = 'Sorry, I encountered an error. Please try again.'
+        
+        // Provide more specific error messages
+        if (error?.response?.data?.message) {
+          errorText = error.response.data.message
+        } else if (error?.message?.includes('CORS') || error?.code === 'ERR_NETWORK') {
+          errorText = 'Connection error. Please check your internet connection and try again.'
+        } else if (error?.response?.status === 401) {
+          errorText = 'Authentication error. Please refresh the page.'
+        } else if (error?.response?.status === 400) {
+          errorText = error.response.data?.message || 'Invalid request. Please check your input.'
+        }
+        
         const errorMessage: Message = {
           id: `msg-${Date.now()}-error`,
-          text: 'Sorry, I encountered an error. Please try again.',
+          text: errorText,
           sender: 'agent',
           timestamp: new Date(),
         }
