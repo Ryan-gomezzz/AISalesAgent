@@ -58,6 +58,22 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
+// CORS headers middleware - ensure headers are always set
+app.use((req, res, next) => {
+  const origin = req.headers.origin
+  if (origin && (origin.includes('.vercel.app') || allowedOrigins.includes(origin) || allowedOrigins.includes('*'))) {
+    res.header('Access-Control-Allow-Origin', origin)
+  } else if (allowedOrigins.length > 0 && !allowedOrigins.includes('*')) {
+    res.header('Access-Control-Allow-Origin', allowedOrigins[0])
+  } else {
+    res.header('Access-Control-Allow-Origin', '*')
+  }
+  res.header('Access-Control-Allow-Credentials', 'true')
+  res.header('Access-Control-Allow-Headers', 'Content-Type, x-frontend-key, X-Frontend-Key, Authorization')
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+  next()
+})
+
 // Request logging middleware
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.path}`, {
