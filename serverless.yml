@@ -83,7 +83,14 @@ functions:
       - http:
           path: /api/{proxy+}
           method: ANY
-          cors: true
+          cors:
+            origin: ${env:CORS_ORIGIN, '*'}
+            headers:
+              - Content-Type
+              - x-frontend-key
+              - X-Frontend-Key
+              - Authorization
+            allowCredentials: true
 
 resources:
   Resources:

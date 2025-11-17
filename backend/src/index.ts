@@ -31,6 +31,15 @@ app.use((req, res, next) => {
   next()
 })
 
+// Handle OPTIONS requests for CORS preflight
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', process.env.CORS_ORIGIN || '*')
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+  res.header('Access-Control-Allow-Headers', 'Content-Type, x-frontend-key, X-Frontend-Key, Authorization')
+  res.header('Access-Control-Allow-Credentials', 'true')
+  res.sendStatus(200)
+})
+
 // Routes
 app.post('/api/converse', converseHandler)
 app.post('/api/analyze-emotion', analyzeEmotionHandler)
