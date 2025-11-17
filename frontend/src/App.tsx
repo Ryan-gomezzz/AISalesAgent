@@ -22,7 +22,7 @@ const App: React.FC = () => {
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const captureIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const captureIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const { messages, sendMessage, isLoading } = useConversation(sessionId)
   const { isListening, transcript, startListening, stopListening } = useSpeechRecognition()
