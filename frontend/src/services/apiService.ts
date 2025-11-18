@@ -55,6 +55,20 @@ export interface UploadAudioResponse {
   jobId?: string
 }
 
+export interface SubmitInquiryRequest {
+  inquiryType: 'ca' | 'salon'
+  phoneNumber: string
+  name?: string
+  inquiryDetails: string
+}
+
+export interface SubmitInquiryResponse {
+  status: string
+  message: string
+  callSid: string
+  inquiryId: string
+}
+
 export const apiService = {
   async converse(request: ConverseRequest): Promise<ConverseResponse> {
     const response = await apiClient.post<ConverseResponse>('/api/converse', request)
@@ -89,6 +103,11 @@ export const apiService = {
 
   async health(): Promise<{ status: string }> {
     const response = await apiClient.get<{ status: string }>('/api/health')
+    return response.data
+  },
+
+  async submitInquiry(request: SubmitInquiryRequest): Promise<SubmitInquiryResponse> {
+    const response = await apiClient.post<SubmitInquiryResponse>('/api/submit-inquiry', request)
     return response.data
   },
 }
