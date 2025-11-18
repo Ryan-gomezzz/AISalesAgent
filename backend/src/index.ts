@@ -5,6 +5,8 @@ import { converseHandler } from './handlers/converse'
 import { analyzeEmotionHandler } from './handlers/analyzeEmotion'
 import { uploadAudioHandler } from './handlers/uploadAudio'
 import { healthHandler } from './handlers/health'
+import { submitInquiryHandler } from './handlers/submitInquiry'
+import { twilioVoiceHandler } from './handlers/twilioVoice'
 import { errorHandler } from './utils/errorHandler'
 
 dotenv.config()
@@ -84,6 +86,9 @@ app.options('*', (req, res) => {
 app.post('/api/converse', converseHandler)
 app.post('/api/analyze-emotion', analyzeEmotionHandler)
 app.post('/api/upload-audio', uploadAudioHandler)
+app.post('/api/submit-inquiry', submitInquiryHandler)
+app.post('/api/twilio/voice', twilioVoiceHandler)
+app.get('/api/twilio/voice', twilioVoiceHandler) // GET for Twilio status callbacks
 app.get('/api/health', healthHandler)
 app.get('/api/session/:id', healthHandler) // TODO: Implement session retrieval
 

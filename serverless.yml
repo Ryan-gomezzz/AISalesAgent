@@ -15,12 +15,27 @@ provider:
     MOCK_BEDROCK: ${env:MOCK_BEDROCK, 'false'}
     S3_BUCKET_NAME: ${self:custom.s3Bucket}
     DYNAMODB_TABLE: ${self:custom.dynamoDBTable}
+    LEADS_TABLE: ${self:custom.leadsTable}
     POLLY_VOICE: ${env:POLLY_VOICE, 'Joanna'}
     TRANSCRIBE_ROLE_ARN: ${self:custom.transcribeRoleArn}
     COGNITIVE_API_URL: ${env:COGNITIVE_API_URL, ''}
     COGNITIVE_API_KEY: ${env:COGNITIVE_API_KEY, ''}
     USE_REKOGNITION_FALLBACK: ${env:USE_REKOGNITION_FALLBACK, 'true'}
     CORS_ORIGIN: ${env:CORS_ORIGIN, '*'}
+    API_BASE_URL:
+      Fn::Join:
+        - ''
+        - - 'https://'
+          - Ref: ApiGatewayRestApi
+          - .execute-api.
+          - ${self:provider.region}
+          - .amazonaws.com/
+          - ${self:provider.stage}
+    TWILIO_ACCOUNT_SID: ${env:TWILIO_ACCOUNT_SID, ''}
+    TWILIO_AUTH_TOKEN: ${env:TWILIO_AUTH_TOKEN, ''}
+    TWILIO_PHONE_NUMBER: ${env:TWILIO_PHONE_NUMBER, ''}
+    FROM_EMAIL: ${env:FROM_EMAIL, ''}
+    TO_EMAIL: ${env:TO_EMAIL, ''}
   iam:
     role:
       statements:
@@ -68,10 +83,18 @@ provider:
           Resource:
             - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.dynamoDBTable}
             - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.dynamoDBTable}/index/*
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.leadsTable}
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.leadsTable}/index/*
+        - Effect: Allow
+          Action:
+            - ses:SendEmail
+            - ses:SendRawEmail
+          Resource: '*'
 
 custom:
   s3Bucket: ${self:service}-assets-${self:provider.stage}
   dynamoDBTable: ${self:service}-conversations-${self:provider.stage}
+  leadsTable: ${self:service}-leads-${self:provider.stage}
   transcribeRoleArn: arn:aws:iam::${aws:accountId}:role/${self:service}-transcribe-role-${self:provider.stage}
 
 
@@ -137,6 +160,35 @@ resources:
               - AttributeName: sessionId
                 KeyType: HASH
               - AttributeName: messageId
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+
+    # DynamoDB Table for leads
+    LeadsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.leadsTable}
+        AttributeDefinitions:
+          - AttributeName: leadId
+            AttributeType: S
+          - AttributeName: callerPhone
+            AttributeType: S
+          - AttributeName: timestamp
+            AttributeType: S
+        KeySchema:
+          - AttributeName: leadId
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+        TimeToLiveSpecification:
+          AttributeName: ttl
+          Enabled: true
+        GlobalSecondaryIndexes:
+          - IndexName: phone-timestamp-index
+            KeySchema:
+              - AttributeName: callerPhone
+                KeyType: HASH
+              - AttributeName: timestamp
                 KeyType: RANGE
             Projection:
               ProjectionType: ALL
