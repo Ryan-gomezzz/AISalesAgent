@@ -73,11 +73,31 @@ export const converseHandler = async (
       selectedProduct,
     })
 
-    // Invoke Bedrock model
-    const responseText = await bedrockClient.invokeModel(prompt, {
-      maxTokens: 1024,
-      temperature: 0.7,
-    })
+    // Invoke Bedrock model with error handling
+    let responseText: string
+    try {
+      responseText = await bedrockClient.invokeModel(prompt, {
+        maxTokens: 1024,
+        temperature: 0.7,
+      })
+      
+      if (!responseText || !responseText.trim()) {
+        throw new Error('Empty response from Bedrock model')
+      }
+    } catch (bedrockError: any) {
+      console.error('Bedrock invocation error:', bedrockError)
+      
+      // Return a user-friendly error message instead of crashing
+      return res.status(500).json({
+        id: uuidv4(),
+        text: 'I apologize, but I\'m experiencing technical difficulties right now. Please try again in a moment. If the problem persists, please contact support.',
+        metadata: {
+          sessionId,
+          timestamp: new Date().toISOString(),
+          error: process.env.NODE_ENV === 'development' ? bedrockError.message : undefined,
+        },
+      })
+    }
 
     // Synthesize speech (with error handling)
     let audioResult: { audioUrl?: string; audioBase64?: string } = { audioUrl: undefined }
