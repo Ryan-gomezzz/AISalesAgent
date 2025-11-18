@@ -36,11 +36,17 @@ export const errorHandler = (
   res.header('Access-Control-Allow-Headers', 'Content-Type, x-frontend-key, X-Frontend-Key, Authorization')
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
 
-  res.status(statusCode).json({
-    status,
-    message: err.message || 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
-  })
+  // Ensure response is sent even if there's an error
+  if (!res.headersSent) {
+    res.status(statusCode).json({
+      status,
+      message: err.message || 'Internal server error',
+      ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+    })
+  } else {
+    // If headers already sent, log the error
+    console.error('Error occurred after response was sent:', err)
+  }
 }
 
 export const createError = (message: string, statusCode: number = 500): AppError => {
