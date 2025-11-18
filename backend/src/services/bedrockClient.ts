@@ -35,26 +35,42 @@ export const invokeModel = async (
     const systemPrompt = options.systemPrompt || ''
     const userPrompt = prompt
 
-    // Build the request body based on model type
-    // For Claude models, use the messages format
-    const requestBody: any = {
-      anthropic_version: 'bedrock-2023-05-31',
-      max_tokens: options.maxTokens || 1024,
-      temperature: options.temperature || 0.7,
-      messages: [
-        ...(systemPrompt
-          ? [
-              {
-                role: 'user',
-                content: systemPrompt,
-              },
-            ]
-          : []),
-        {
-          role: 'user',
-          content: userPrompt,
-        },
-      ],
+    // Build the request body based on model version
+    // Claude v2 uses prompt format, Claude v3+ uses messages format
+    let requestBody: any
+    
+    if (MODEL_ID.includes('claude-3') || MODEL_ID.includes('claude-v3')) {
+      // Claude 3+ uses messages format
+      requestBody = {
+        anthropic_version: 'bedrock-2023-05-31',
+        max_tokens: options.maxTokens || 1024,
+        temperature: options.temperature || 0.7,
+        messages: [
+          ...(systemPrompt
+            ? [
+                {
+                  role: 'user',
+                  content: systemPrompt,
+                },
+              ]
+            : []),
+          {
+            role: 'user',
+            content: userPrompt,
+          },
+        ],
+      }
+    } else {
+      // Claude v2 uses prompt format
+      const fullPrompt = systemPrompt 
+        ? `\n\nHuman: ${systemPrompt}\n\n${userPrompt}\n\nAssistant:`
+        : `\n\nHuman: ${userPrompt}\n\nAssistant:`
+      
+      requestBody = {
+        prompt: fullPrompt,
+        max_tokens_to_sample: options.maxTokens || 1024,
+        temperature: options.temperature || 0.7,
+      }
     }
 
     const command = new InvokeModelCommand({
@@ -68,8 +84,16 @@ export const invokeModel = async (
     const responseBody = JSON.parse(new TextDecoder().decode(response.body))
 
     // Extract the response text based on model type
-    if (responseBody.content && responseBody.content[0]) {
-      return responseBody.content[0].text
+    if (MODEL_ID.includes('claude-3') || MODEL_ID.includes('claude-v3')) {
+      // Claude 3+ format
+      if (responseBody.content && responseBody.content[0]) {
+        return responseBody.content[0].text
+      }
+    } else {
+      // Claude v2 format
+      if (responseBody.completion) {
+        return responseBody.completion.trim()
+      }
     }
 
     throw new Error('Unexpected response format from Bedrock')

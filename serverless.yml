@@ -5,8 +5,8 @@ provider:
   runtime: nodejs18.x
   region: ${opt:region, 'ap-south-1'}
   stage: ${opt:stage, 'dev'}
-  memorySize: 512
-  timeout: 30
+  memorySize: 1024
+  timeout: 60
   environment:
     NODE_ENV: production
     NODE_PATH: /var/task/backend/node_modules:/var/task/backend/dist
