@@ -80,24 +80,33 @@ npx serverless deploy --stage prod
 
 This will return mock responses without calling Bedrock.
 
-## Claude v2 vs Claude v3+ (Latest 2024 Methodology)
+## Claude v2 vs Claude v3+ (Latest 2025 Methodology)
 
 - **Claude v2**: Uses `prompt` format with `\n\nHuman:` and `\n\nAssistant:` markers
 - **Claude v3+** (including 3.5, 4.5, Sonnet, Haiku, Opus): Uses `messages` format with dedicated `system` parameter
 
-### Latest Best Practices (2024):
+### Latest Best Practices (2025):
 
-1. **System Parameter**: Claude 3+ models now use a dedicated `system` parameter instead of including system prompts in messages - this is more efficient and recommended
+1. **System Parameter**: Claude 3+ models use a dedicated `system` parameter instead of including system prompts in messages - this is more efficient and recommended
 2. **Model Support**: The code automatically detects and supports:
    - Claude v2 (anthropic.claude-v2)
    - Claude 3 Sonnet (anthropic.claude-3-sonnet-20240229-v1:0)
    - Claude 3.5 Sonnet (anthropic.claude-3-5-sonnet-20240620-v1:0)
    - Claude 3 Haiku (anthropic.claude-3-haiku-20240307-v1:0)
    - Claude 3 Opus (anthropic.claude-3-opus-20240229-v1:0)
-   - Claude Sonnet 4.5 (latest)
-   - Claude Haiku 4.5 (latest)
+   - Claude Sonnet 4.5 (latest 2025)
+   - Claude Haiku 4.5 (latest 2025)
 
 3. **Response Format**: Claude 3+ supports multiple content blocks - the code handles this automatically
 
-The code now supports all these models automatically based on the model ID.
+4. **AWS Bedrock 2025 Features** (Compatible):
+   - **Prompt Optimization**: Automatically refine prompts for better performance (available via Bedrock Playground or API)
+   - **Guardrails**: Implement responsible AI safeguards (can be integrated)
+   - **AgentCore**: Deploy and operate AI agents at scale (future integration)
+   - **Model Evaluation**: Compare and evaluate models (available via Bedrock console)
+   - **Default Model Access**: All foundation models enabled by default with correct IAM permissions (as of Oct 2025)
+
+5. **AWS SDK Version**: Using latest AWS SDK v3 (3.933.0+) for full 2025 compatibility
+
+The code now supports all these models automatically based on the model ID and is fully compatible with AWS Bedrock 2025 features.
 

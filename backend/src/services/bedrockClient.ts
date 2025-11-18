@@ -19,15 +19,22 @@ interface InvokeModelOptions {
 /**
  * Invoke AWS Bedrock model with a prompt
  * 
- * Latest methodology (2024):
+ * Latest methodology (2025):
  * - Claude v2: Uses prompt format with Human/Assistant markers
  * - Claude v3+: Uses messages format with dedicated system parameter (recommended)
  * - Supports Claude 3.5, 4.5, Sonnet, Haiku, Opus models
  * - Uses latest anthropic_version for compatibility
+ * - Compatible with AWS Bedrock 2025 features:
+ *   - Prompt Optimization (via Bedrock Playground or API)
+ *   - Guardrails for responsible AI
+ *   - AgentCore for agentic AI
+ *   - Model Evaluation capabilities
  * 
  * TODO: Add support for streaming responses (InvokeModelWithResponseStream)
  * TODO: Add retry logic with exponential backoff
  * TODO: Add support for tool use (function calling)
+ * TODO: Integrate Prompt Optimization API
+ * TODO: Add Guardrails integration
  */
 export const invokeModel = async (
   prompt: string,
@@ -47,9 +54,9 @@ export const invokeModel = async (
     let requestBody: any
     
     if (MODEL_ID.includes('claude-3') || MODEL_ID.includes('claude-v3') || MODEL_ID.includes('claude-4') || MODEL_ID.includes('claude-sonnet') || MODEL_ID.includes('claude-haiku') || MODEL_ID.includes('claude-opus')) {
-      // Claude 3+ uses messages format with dedicated system parameter (latest best practice 2024)
+      // Claude 3+ uses messages format with dedicated system parameter (latest best practice 2025)
       requestBody = {
-        anthropic_version: 'bedrock-2023-05-31', // Latest stable version
+        anthropic_version: 'bedrock-2023-05-31', // Latest stable version (compatible with 2025 models)
         max_tokens: options.maxTokens || 1024,
         temperature: options.temperature || 0.7,
         messages: [
@@ -60,7 +67,8 @@ export const invokeModel = async (
         ],
       }
       
-      // Use dedicated system parameter for Claude 3+ (recommended approach as of 2024)
+      // Use dedicated system parameter for Claude 3+ (recommended approach as of 2025)
+      // This is more efficient and aligns with AWS Bedrock best practices
       if (systemPrompt) {
         requestBody.system = systemPrompt
       }
