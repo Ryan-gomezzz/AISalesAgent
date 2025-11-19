@@ -1,0 +1,154 @@
+service: aisalesagent-backend
+
+frameworkVersion: '4'
+
+plugins:
+  - serverless-esbuild
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: ${opt:region, 'us-east-1'}
+  stage: ${opt:stage, 'dev'}
+  architecture: arm64
+  environment:
+    AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+    DYNAMODB_TABLE_NAME: { Ref: LeadsTable }
+    SQS_CALL_QUEUE_URL: { Ref: CallQueue }
+    POST_CALL_QUEUE_URL: { Ref: PostCallQueue }
+    SES_FROM_EMAIL: ${env:SES_FROM_EMAIL}
+    SES_TO_EMAIL: ${env:SES_TO_EMAIL}
+    TWILIO_ACCOUNT_SID: ${env:TWILIO_ACCOUNT_SID}
+    TWILIO_AUTH_TOKEN: ${env:TWILIO_AUTH_TOKEN}
+    TWILIO_PHONE_NUMBER: ${env:TWILIO_PHONE_NUMBER}
+    TWILIO_STATUS_CALLBACK_URL: ${env:TWILIO_STATUS_CALLBACK_URL}
+    SESSION_MANAGER_HOST: ${env:SESSION_MANAGER_HOST}
+    BEDROCK_MODEL_ID: ${env:BEDROCK_MODEL_ID}
+    FRONTEND_KEY: ${env:FRONTEND_KEY}
+    AWS_REGION: ${self:provider.region}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:GetItem
+            - dynamodb:Scan
+          Resource: { 'Fn::GetAtt': [LeadsTable, Arn] }
+        - Effect: Allow
+          Action:
+            - sqs:SendMessage
+            - sqs:ReceiveMessage
+            - sqs:DeleteMessage
+            - sqs:GetQueueAttributes
+          Resource:
+            - { 'Fn::GetAtt': [CallQueue, Arn] }
+            - { 'Fn::GetAtt': [PostCallQueue, Arn] }
+        - Effect: Allow
+          Action:
+            - ses:SendEmail
+            - ses:SendRawEmail
+          Resource: '*'
+        - Effect: Allow
+          Action:
+            - s3:GetObject
+            - s3:PutObject
+          Resource:
+            - arn:aws:s3:::${self:custom.transcriptsBucket}/*
+            - arn:aws:s3:::${self:custom.recordingsBucket}/*
+        - Effect: Allow
+          Action:
+            - bedrock:InvokeModel
+          Resource: '*'
+
+custom:
+  esbuild:
+    bundle: true
+    target: node18
+    sourcemap: true
+    outdir: dist
+    exclude: ['aws-sdk']
+  transcriptsBucket: aisalesagent-transcripts-${self:provider.stage}
+  recordingsBucket: aisalesagent-recordings-${self:provider.stage}
+
+functions:
+  submitInquiry:
+    handler: src/index.submitInquiryHandler
+    events:
+      - httpApi:
+          method: post
+          path: /api/submit-inquiry
+  initiateCall:
+    handler: src/index.initiateCallWorker
+    events:
+      - sqs:
+          arn: { 'Fn::GetAtt': [CallQueue, Arn] }
+  twilioStatusCallback:
+    handler: src/index.twilioStatusCallbackHandler
+    events:
+      - httpApi:
+          method: post
+          path: /api/twilio/status
+  postCallProcessor:
+    handler: src/index.postCallProcessorHandler
+    events:
+      - sqs:
+          arn: { 'Fn::GetAtt': [PostCallQueue, Arn] }
+  postCallWebhook:
+    handler: src/index.postCallWebhookHandler
+    events:
+      - httpApi:
+          method: post
+          path: /api/post-call
+  listLeads:
+    handler: src/index.listLeadsHandler
+    events:
+      - httpApi:
+          method: get
+          path: /api/leads
+
+resources:
+  Resources:
+    LeadsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: AISalesAgentLeads-${self:provider.stage}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: leadId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: leadId
+            KeyType: HASH
+    CallQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: aisalesagent-call-queue-${self:provider.stage}
+    PostCallQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: aisalesagent-postcall-queue-${self:provider.stage}
+    TranscriptsBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.transcriptsBucket}
+        VersioningConfiguration:
+          Status: Enabled
+    RecordingsBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.recordingsBucket}
+        VersioningConfiguration:
+          Status: Enabled
+  Outputs:
+    LeadsTableName:
+      Value: { Ref: LeadsTable }
+    CallQueueUrl:
+      Value: { Ref: CallQueue }
+    PostCallQueueUrl:
+      Value: { Ref: PostCallQueue }
+    TranscriptsBucketName:
+      Value: ${self:custom.transcriptsBucket}
+    RecordingsBucketName:
+      Value: ${self:custom.recordingsBucket}

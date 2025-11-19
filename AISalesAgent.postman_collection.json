@@ -1,0 +1,68 @@
+{
+  "info": {
+    "name": "AISalesAgent",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Submit Inquiry",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": "{{api_base}}/submit-inquiry",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Test Caller\",\n  \"phoneNumber\": \"+18885550123\",\n  \"inquiryType\": \"ca\",\n  \"inquiryDetails\": \"Need help with automation\",\n  \"consent\": true\n}"
+        }
+      }
+    },
+    {
+      "name": "Get Leads",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "x-frontend-key", "value": "{{admin_token}}" }
+        ],
+        "url": "{{api_base}}/leads"
+      }
+    },
+    {
+      "name": "Twilio Status Callback",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/x-www-form-urlencoded" },
+          { "key": "X-Twilio-Signature", "value": "{{twilio_signature}}" }
+        ],
+        "url": "{{api_base}}/twilio/status?leadId={{leadId}}",
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "CallSid", "value": "CA123" },
+            { "key": "CallStatus", "value": "completed" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Post Call Processor",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": "{{api_base}}/post-call",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"leadId\": \"{{leadId}}\",\n  \"transcriptBucket\": \"aisalesagent-transcripts-dev\",\n  \"transcriptKey\": \"transcripts/sample.txt\",\n  \"recordingBucket\": \"aisalesagent-recordings-dev\",\n  \"recordingKey\": \"recordings/sample.pcm\"\n}"
+        }
+      }
+    }
+  ],
+  "variable": [
+    { "key": "api_base", "value": "https://localhost:3000/api" },
+    { "key": "admin_token", "value": "demo-admin-token" }
+  ]
+}

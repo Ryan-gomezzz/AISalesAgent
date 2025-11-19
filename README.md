@@ -1,368 +1,164 @@
-# AI Voice Agent - Twilio Integration
+# AISalesAgent
 
-An AI-powered voice agent system that automatically calls leads, conducts natural conversations, and generates qualified leads via email.
+AI-driven outbound qualification calls that bridge Twilio Media Streams → Amazon Transcribe → AWS Bedrock (Claude) → Amazon Polly, while persisting leads into DynamoDB and notifying humans via SES.
 
-## 🎯 Overview
-
-This application provides a complete voice agent solution where:
-1. Users submit inquiries (CA services or Salon appointments) via a web form
-2. The AI agent automatically calls the user's phone number
-3. A natural, human-like conversation takes place using AWS Bedrock (Claude)
-4. Leads are automatically generated, stored, and emailed
-
-## 🏗️ Architecture
+## Architecture
+- **Frontend (React + Vite + Tailwind):** lead intake form and token-protected admin dashboard.
+- **Backend (Serverless Framework, Node 18):** Lambdas for inquiry intake, call initiation worker (SQS), Twilio status webhooks, post-call processing, and admin lead listing.
+- **Session Manager (Node 18, ECS Fargate):** WebSocket server that speaks Twilio Media Streams, streams audio to Amazon Transcribe, queries Bedrock (Claude) for replies, synthesizes audio via Polly, and stores recordings/transcripts in S3.
+- **Infra:** CloudFormation template for the Fargate service + IAM policies.
+- **Data Plane:** DynamoDB table (`AISalesAgentLeads`), SQS queues (`aisalesagent-call-queue-*`, `aisalesagent-postcall-queue-*`), S3 buckets for recordings/transcripts, SES for email, GitHub Actions for CI/CD.
 
 ```
-Frontend (Vercel) → Backend (AWS Lambda) → Twilio → User's Phone
-                                      ↓
-                              AWS Bedrock (Claude)
-                                      ↓
-                              DynamoDB (Leads) → AWS SES (Email)
+Web Form → submitInquiry (Lambda) → DynamoDB + SQS → Twilio outbound call → Twilio Media Stream ↔ Session Manager ↔ Transcribe/B edrock/Polly → S3/DynamoDB → PostCallProcessor → SES + Admin UI
 ```
 
-## 🚀 Features
-
-- **Voice Agent**: Human-like AI conversations via phone calls
-- **Inquiry Types**: Support for CA (Chartered Accountancy) and Salon appointments
-- **Lead Generation**: Automatic extraction and scoring of leads
-- **Email Notifications**: Leads automatically emailed to configured address
-- **Low Latency**: Optimized for real-time voice conversations
-- **Natural Speech**: Uses Twilio's neural voices for human-like speech
-
-## 📋 Prerequisites
-
-- Node.js 18.x or higher
-- AWS Account with:
-  - Bedrock access (Claude models)
-  - DynamoDB
-  - SES (Simple Email Service)
-  - IAM permissions
-- Twilio Account with:
-  - Phone number
-  - Account SID and Auth Token
-- Serverless Framework CLI
-
-## 🔧 Setup Instructions
-
-### 1. Clone and Install
-
-```bash
-git clone <repository-url>
-cd AISalesAgent
-npm install
-cd backend && npm install
-cd ../frontend && npm install
+## Repository Layout
+```
+backend/          # Serverless Lambdas (submitInquiry, Twilio callbacks, post-call, admin)
+session-manager/  # ECS-ready Node WebSocket server (Twilio Media Streams)
+frontend/         # React SPA for lead intake + admin
+infra/            # CloudFormation + IAM policy snippets
+prompts/          # Persona + Bedrock templates (dialogue + extract & score)
+docs/             # Cost estimate + test plan
+AISalesAgent.postman_collection.json
 ```
 
-### 2. AWS Configuration
+## Backend Highlights
+- `submitInquiryHandler` validates payloads (Zod), writes provisional leads to DynamoDB, and pushes an SQS job.
+- `initiateCallWorker` (same file, SQS trigger) calls Twilio REST to start the outbound call and stores the `callSid`.
+- `twilioStatusCallbackHandler` verifies signatures, mirrors call state into DynamoDB, and records timestamps.
+- `postCallProcessorHandler` consumes SQS or HTTPS events, fetches transcripts from S3, invokes Bedrock with the strict JSON template, validates the output, updates DynamoDB, and sends SES notifications.
+- `listLeadsHandler` powers the admin dashboard with a simple header token check.
+- `services/` wraps DynamoDB DocumentClient, SQS, SES, Twilio, Bedrock, and S3 interactions.
+- Serverless template provisions DynamoDB, SQS queues, S3 buckets, IAM, and API Gateway routes.
 
-#### AWS Bedrock Setup
+## Session Manager Highlights
+- WebSocket server (ws) with per-call `Session` that:
+  1. Accepts Twilio Media Streams (bidirectional) with consent reminder.
+  2. Streams 16 kHz PCM audio to Amazon Transcribe Streaming.
+  3. Uses a sliding window `BedrockAgent` (Claude 3.5 Sonnet) for replies; plays a "thinking" clip if responses take >800 ms.
+  4. Synthesizes replies via Polly (neural voice) and streams audio back to Twilio.
+  5. Records raw audio + transcripts to S3 and invokes the backend post-call webhook when the call ends.
+- Confidence heuristics request clarification when ASR confidence < 0.7.
+- Configured via `.env`/task definition; ships with Dockerfile + ECS task definition JSON.
 
-1. Enable Bedrock in your AWS region (e.g., `ap-south-1`)
-2. Request access to Claude models (Claude 3.5 Sonnet recommended)
-3. Ensure your Lambda execution role has `bedrock:InvokeModel` permission
+## Frontend Highlights
+- Tailwind-driven UI with responsive lead form and admin page.
+- Admin route gated by `VITE_FRONTEND_KEY`; request headers send the token (`x-frontend-key`).
+- Components live in `src/components` with typed API client in `src/lib/api.ts`.
 
-See [BEDROCK_SETUP.md](./BEDROCK_SETUP.md) for detailed setup instructions.
-
-#### AWS SES Setup
-
-1. Verify your sender email address in SES console
-2. If in sandbox mode, verify recipient email addresses
-3. Request production access if needed
-
-#### DynamoDB
-
-Tables are automatically created by Serverless Framework:
-- `aisalesagent-leads-{stage}` - Stores generated leads
-
-### 3. Twilio Configuration
-
-1. Sign up at [Twilio](https://www.twilio.com/)
-2. Get a phone number
-3. Note your Account SID and Auth Token
-
-### 4. Environment Variables
-
-#### Backend (.env or serverless.yml)
-
-```bash
-# AWS
-AWS_REGION=ap-south-1
-BEDROCK_MODEL=anthropic.claude-3-5-sonnet-20241022-v2:0
-AWS_ACCESS_KEY_ID=your-access-key
-AWS_SECRET_ACCESS_KEY=your-secret-key
-
-# Twilio
-TWILIO_ACCOUNT_SID=your-account-sid
-TWILIO_AUTH_TOKEN=your-auth-token
-TWILIO_PHONE_NUMBER=+1234567890
-
-# Email
-FROM_EMAIL=noreply@yourdomain.com
-TO_EMAIL=your-email@example.com
-
-# API
-FRONTEND_KEY=your-secure-frontend-key
-API_BASE_URL=https://your-api-gateway-url.execute-api.region.amazonaws.com/stage
-
-# CORS
-CORS_ORIGIN=https://your-frontend-domain.vercel.app
-```
-
-#### Frontend (.env)
-
-```bash
-VITE_API_BASE_URL=https://your-api-gateway-url.execute-api.region.amazonaws.com/stage
-VITE_FRONTEND_KEY=your-secure-frontend-key
-```
-
-### 5. Deploy Backend
-
-```bash
-cd backend
-npm run build
-npm run prepare:lambda
-cd ..
-npx serverless deploy --stage prod --region ap-south-1
-```
-
-After deployment, update `API_BASE_URL` in your environment variables with the actual API Gateway URL.
-
-### 6. Configure Twilio Webhook
-
-1. Go to Twilio Console → Phone Numbers → Manage → Active Numbers
-2. Click your phone number
-3. Under "Voice & Fax", set webhook URL to:
+## Getting Started
+1. **Clone & install**
+   ```bash
+   git clone <repo>
+   cd AISalesAgent
+   (cd backend && npm install)
+   (cd session-manager && npm install)
+   (cd frontend && npm install)
    ```
-   https://your-api-gateway-url/api/twilio/voice
+2. **Configure environment files**
+   - `backend/.env` → copy from [`backend/env.example`](backend/env.example) (Serverless injects table/queue names in AWS, but you need them for local/offline use).
+   - `session-manager/.env` → copy from [`session-manager/env.example`](session-manager/env.example) and set S3 buckets + post-call webhook.
+   - `frontend/.env` → copy from [`frontend/env.example`](frontend/env.example) for `VITE_API_BASE_URL` + admin token.
+3. **Run Locally**
+   ```bash
+   # Backend (API Gateway emulation)
+   cd backend
+   npx serverless offline --stage local --httpPort 3000
+
+   # Session manager WebSocket server
+   cd ../session-manager
+   npm run dev
+
+   # Frontend
+   cd ../frontend
+   npm run dev
    ```
-4. Set HTTP method to `POST`
-5. Save
+4. **Expose WebSocket for Twilio**
+   ```bash
+   ngrok http 8080
+   ```
+   Use the `wss://<id>.ngrok-free.app/twilio` URL as the `<Stream>` target in your TwiML (already emitted by `startOutboundCall`).
+5. **Connect Twilio**
+   - Configure `TWILIO_STATUS_CALLBACK_URL` to your API Gateway/Serverless endpoint.
+   - Point outbound call `From` number to your verified Twilio number.
 
-### 7. Deploy Frontend
+## Environment Variables
+- **Backend**
+  - `AWS_REGION`, `SESSION_MANAGER_HOST`, `BEDROCK_MODEL_ID`, `FRONTEND_KEY`
+  - `SQS_CALL_QUEUE_URL`, `POST_CALL_QUEUE_URL`, `DYNAMODB_TABLE_NAME` (auto-populated in deployed stacks)
+  - `SES_FROM_EMAIL`, `SES_TO_EMAIL`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`, `TWILIO_STATUS_CALLBACK_URL`
+- **Session Manager**
+  - `S3_RECORDINGS_BUCKET`, `S3_TRANSCRIPTS_BUCKET`, `POST_CALL_WEBHOOK`
+  - `BEDROCK_MODEL_ID`, `POLLY_VOICE`, `TRANSCRIBE_LANGUAGE`, `MAX_PARALLEL_SESSIONS`, `LOG_LEVEL`
+- **Frontend**
+  - `VITE_API_BASE_URL`, `VITE_FRONTEND_KEY`
 
-```bash
-cd frontend
-npm run build
-# Deploy to Vercel or your hosting platform
-```
+## Testing
+- **Unit** — `cd backend && npm test` (validators + Bedrock parser).
+- **Frontend lint/build** — `npm run lint && npm run build`.
+- **Session-manager build** — `npm run build` (tsc) and optional `npm run dev` for live reload.
+- **Manual flows** — Use the included [Postman collection](./AISalesAgent.postman_collection.json) + [docs/TEST_PLAN.md](docs/TEST_PLAN.md) for detailed steps, including ngrok-based end-to-end validation.
 
-## 📁 Project Structure
+## Deployment
+- **Backend:** `cd backend && npx serverless deploy --stage prod --region us-east-1`.
+- **Session Manager:** build + push Docker image, then apply `infra/cloudformation/ecs-fargate.yml` (parameters documented in the template). Example snippet:
+  ```bash
+  aws cloudformation deploy \
+    --stack-name AISalesAgent-ECS \
+    --template-file infra/cloudformation/ecs-fargate.yml \
+    --parameter-overrides \
+        ImageUri=123456789012.dkr.ecr.us-east-1.amazonaws.com/aisalesagent:latest \
+        VpcId=vpc-123 \
+        PublicSubnets=subnet-1,subnet-2 \
+        ListenerArn=arn:aws:elasticloadbalancing:... \
+        SessionManagerHost=session.example.com \
+        RecordingsBucket=aisalesagent-recordings-prod \
+        TranscriptsBucket=aisalesagent-transcripts-prod \
+        PostCallWebhook=https://api.example.com/prod/api/post-call \
+        BedrockModelId=anthropic.claude-3-5-sonnet-20241022-v2:0 \
+        PollyVoice=Joanna \
+        TranscribeLanguage=en-US \
+        MaxParallelSessions=25 \
+    --capabilities CAPABILITY_NAMED_IAM
+  ```
+- **CI/CD:** `.github/workflows/ci.yml` runs lint/tests for all packages, then on `main` pushes it deploys the backend via Serverless, builds/pushes the session-manager Docker image to ECR, and re-applies the ECS CloudFormation stack. Provision the following GitHub secrets: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `SERVERLESS_STAGE`, `ECR_REPOSITORY`, `ECS_STACK_NAME`, `VPC_ID`, `PUBLIC_SUBNETS`, `CLUSTER_NAME`, `LISTENER_ARN`, `SESSION_MANAGER_HOST`, `RECORDINGS_BUCKET`, `TRANSCRIPTS_BUCKET`, `POST_CALL_WEBHOOK`, plus optional overrides for `BEDROCK_MODEL_ID`, `POLLY_VOICE`, `TRANSCRIBE_LANGUAGE`, `MAX_PARALLEL_SESSIONS`.
 
-```
-AISalesAgent/
-├── backend/
-│   ├── src/
-│   │   ├── handlers/
-│   │   │   ├── submitInquiry.ts    # Handle inquiry submission
-│   │   │   ├── twilioVoice.ts      # Twilio webhook handler
-│   │   │   └── ...
-│   │   ├── services/
-│   │   │   ├── twilioClient.ts     # Twilio integration
-│   │   │   ├── emailService.ts     # AWS SES email service
-│   │   │   ├── leadStore.ts        # DynamoDB lead storage
-│   │   │   └── bedrockClient.ts    # AWS Bedrock client
-│   │   └── ...
-│   └── package.json
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   └── InquiryForm.tsx      # Inquiry submission form
-│   │   └── ...
-│   └── package.json
-├── prompts/
-│   └── voice-agent.md              # Voice agent persona and prompts
-├── serverless.yml                  # Serverless Framework config
-└── README.md
-```
+## Monitoring & Operations
+- CloudWatch logs for Lambda + ECS (`/aws/lambda/*`, `/ecs/aisalesagent-session-manager`).
+- Custom CloudWatch metric recommendations: `ActiveSessions`, `BedrockLatency`, `TranscribeReconnects` (instrumentation hooks available in `session-manager/src/logger.ts`).
+- Configure SNS alarms for:
+  - ECS CPU > 60% for 5 minutes (autoscaling policy already defined).
+  - Lambda `Errors` metric > 1 within 5 minutes.
+- Consent tracking (DynamoDB `consent` boolean + timestamp) ensures compliance.
 
-## 🔑 API Keys & Credentials
+## Security Notes
+- All secrets are environment-driven; never commit credentials.
+- Twilio webhooks validated via HMAC signatures before updates.
+- Admin dashboard relies on `x-frontend-key` + backend comparison — rotate `FRONTEND_KEY` frequently and consider upgrading to Cognito for production.
+- IAM policies kept least-privilege (see `infra/iam-policies/`).
 
-### Required API Keys
+## Demo & Acceptance Checklist
+1. Submit a CA inquiry from the frontend.
+2. Observe outbound call within 60 seconds; AI agent should confirm consent, ask qualification questions, and summarize.
+3. Upon hangup, DynamoDB lead row updates (`status`, `score`, `summary`), S3 objects created, SES email received.
+4. Admin dashboard lists the lead with playable recording (presigned URL from backend endpoint).
+5. Refer to [docs/TEST_PLAN.md](docs/TEST_PLAN.md) for scripted acceptance scenarios, including regression checks (invalid phone number, missing consent, Twilio signature rejection, failover path to human).
+6. Provide a short screen recording (form submission → call → dashboard) when handing off.
 
-1. **AWS Bedrock**
-   - No API key needed - uses IAM roles
-   - Ensure Lambda execution role has Bedrock permissions
+## Cost Reference
+See [docs/COST_ESTIMATE.md](docs/COST_ESTIMATE.md) for a 50-calls/day MVP estimate (~$1.3k/month, mostly Twilio + Bedrock).
 
-2. **Twilio**
-   - Account SID: Found in Twilio Console Dashboard
-   - Auth Token: Found in Twilio Console Dashboard
-   - Phone Number: Purchase from Twilio
+## Sample Env Vars
+- Backend: `backend/.env.example`
+- Session manager: `session-manager/.env.example`
+- Frontend: `frontend/.env.example`
 
-3. **AWS SES**
-   - No API key needed - uses IAM roles
-   - Verify sender and recipient emails in SES console
+## Future Enhancements
+- Replace basic admin token with Cognito-hosted auth.
+- Persist transcript snippets during the call (currently final transcript stored at end + periodic partial flush available via `SessionRecorder`).
+- Instrument advanced analytics (lead conversion funnel, call latency histogram).
+- Expand Postman collection with authenticated SES + DynamoDB queries once Stage-specific endpoints are live.
 
-### Setting Up Credentials
-
-#### Option 1: Environment Variables (Recommended for Production)
-Set in your deployment platform (Vercel, AWS Lambda environment variables, etc.)
-
-#### Option 2: .env File (Local Development)
-Create `.env` files in `backend/` and `frontend/` directories
-
-#### Option 3: Serverless Framework
-Add to `serverless.yml` under `provider.environment`
-
-## 🎙️ How It Works
-
-### 1. User Submits Inquiry
-
-User fills out the inquiry form:
-- Selects inquiry type (CA or Salon)
-- Enters phone number
-- Provides inquiry details
-
-### 2. Call Initiation
-
-Backend receives inquiry and:
-- Validates phone number
-- Initiates Twilio call to user
-- Passes inquiry context to Twilio webhook
-
-### 3. Voice Conversation
-
-Twilio webhook handler:
-- Receives speech input from user
-- Sends to AWS Bedrock for AI response
-- Returns TwiML to Twilio for voice output
-- Maintains conversation context
-
-### 4. Lead Generation
-
-After conversation:
-- Generates conversation summary
-- Calculates lead score (1-10)
-- Extracts requirements and key information
-- Saves to DynamoDB
-- Sends email notification
-
-## 🧪 Testing
-
-### Local Testing
-
-1. Start backend:
-```bash
-cd backend
-npm run dev
-```
-
-2. Start frontend:
-```bash
-cd frontend
-npm run dev
-```
-
-3. Use ngrok or similar to expose local backend for Twilio webhooks:
-```bash
-ngrok http 3000
-# Use ngrok URL in Twilio webhook configuration
-```
-
-### Testing Voice Agent
-
-1. Submit inquiry via frontend
-2. Answer the call when it comes
-3. Have a conversation
-4. Check email for lead notification
-
-## 📊 Lead Scoring
-
-Leads are scored 1-10 based on:
-- Interest level (engagement in conversation)
-- Urgency (timeline mentioned)
-- Budget (price discussions)
-- Authority (decision-making ability)
-- Fit (matches ideal customer profile)
-
-## 🔒 Security
-
-- Frontend key authentication for API access
-- CORS configured for specific origins
-- IAM roles for AWS service access
-- Environment variables for sensitive data
-- Phone number validation
-
-## 🐛 Troubleshooting
-
-### Call Not Initiating
-- Check Twilio credentials
-- Verify phone number format (include country code)
-- Check Lambda logs for errors
-
-### No AI Response
-- Verify Bedrock model access
-- Check IAM permissions
-- Review Lambda logs
-
-### Email Not Sending
-- Verify SES email addresses
-- Check SES sandbox status
-- Review IAM permissions
-
-### CORS Errors
-- Update `CORS_ORIGIN` environment variable
-- Check API Gateway CORS configuration
-
-## 📝 API Endpoints
-
-### POST `/api/submit-inquiry`
-Submit an inquiry and initiate a call.
-
-**Request:**
-```json
-{
-  "inquiryType": "ca" | "salon",
-  "phoneNumber": "+1234567890",
-  "name": "John Doe",
-  "inquiryDetails": "I need help with business registration"
-}
-```
-
-**Response:**
-```json
-{
-  "status": "success",
-  "message": "Call initiated successfully",
-  "callSid": "CAxxxxx",
-  "inquiryId": "uuid"
-}
-```
-
-### POST `/api/twilio/voice`
-Twilio webhook endpoint (handled automatically).
-
-### GET `/api/health`
-Health check endpoint.
-
-## 🚀 Deployment
-
-See [DEPLOY.md](./DEPLOY.md) for detailed deployment instructions.
-
-## 📚 Additional Documentation
-
-- [BEDROCK_SETUP.md](./BEDROCK_SETUP.md) - AWS Bedrock setup guide
-- [DEPLOY.md](./DEPLOY.md) - Deployment guide
-
-## 🤝 Contributing
-
-1. Create a feature branch
-2. Make your changes
-3. Test thoroughly
-4. Submit a pull request
-
-## 📄 License
-
-[Your License Here]
-
-## 🆘 Support
-
-For issues or questions:
-- Check troubleshooting section
-- Review AWS CloudWatch logs
-- Check Twilio call logs
-- Review application logs
-
----
-
-**Note**: This system uses AWS Bedrock with Claude models. Ensure you have proper access and are following AWS usage guidelines. For production use, consider implementing rate limiting, conversation state persistence (Redis/DynamoDB), and enhanced error handling.
+Happy calling! 🚀

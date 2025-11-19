@@ -1,0 +1,37 @@
+{
+  "system": "You are an assistant that extracts structured lead data for CA & Salon services. WHEN YOU RESPOND: output valid JSON ONLY matching the schema. No markdown, no text outside JSON.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "leadId": {"type": "string"},
+      "phoneNumber": {"type": "string"},
+      "serviceType": {"type": "string"},
+      "initialMessage": {"type": "string"},
+      "transcript": {"type": "string"}
+    },
+    "required": ["leadId", "phoneNumber", "serviceType", "transcript"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "name": {"type": "string"},
+      "phone": {"type": "string"},
+      "serviceType": {"type": "string", "enum": ["ca", "salon", "unknown"]},
+      "requirements": {"type": "string"},
+      "budget": {"type": ["string", "null"]},
+      "timeframe": {"type": ["string", "null"]},
+      "decisionMaker": {"type": "string", "enum": ["yes", "no", "unknown"]},
+      "score": {"type": "integer", "minimum": 1, "maximum": 10},
+      "summary": {"type": "string"},
+      "followUpRecommended": {"type": "boolean"},
+      "tags": {"type": "array", "items": {"type": "string"}}
+    },
+    "required": ["name", "phone", "serviceType", "requirements", "score", "summary", "followUpRecommended", "tags"],
+    "additionalProperties": false
+  },
+  "scoring_notes": [
+    "8-10: high intent, budget + decision authority + timeframe < 1 week",
+    "5-7: engaged, timeframe < 1 month, partial clarity",
+    "1-4: low intent or research mode"
+  ]
+}

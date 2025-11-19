@@ -1,0 +1,42 @@
+{
+  "family": "aisalesagent-session-manager",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "containerDefinitions": [
+    {
+      "name": "session-manager",
+      "image": "123456789012.dkr.ecr.us-east-1.amazonaws.com/aisalesagent/session-manager:latest",
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "hostPort": 8080,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        { "name": "NODE_ENV", "value": "production" },
+        { "name": "AWS_REGION", "value": "us-east-1" },
+        { "name": "SESSION_MANAGER_HOST", "value": "session.example.com" },
+        { "name": "BEDROCK_MODEL_ID", "value": "anthropic.claude-3-5-sonnet-20241022-v2:0" },
+        { "name": "POLLY_VOICE", "value": "Joanna" },
+        { "name": "TRANSCRIBE_LANGUAGE", "value": "en-US" },
+        { "name": "S3_RECORDINGS_BUCKET", "value": "aisalesagent-recordings-prod" },
+        { "name": "S3_TRANSCRIPTS_BUCKET", "value": "aisalesagent-transcripts-prod" },
+        { "name": "POST_CALL_WEBHOOK", "value": "https://api.example.com/api/post-call" },
+        { "name": "MAX_PARALLEL_SESSIONS", "value": "25" },
+        { "name": "LOG_LEVEL", "value": "info" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/aisalesagent-session-manager",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}

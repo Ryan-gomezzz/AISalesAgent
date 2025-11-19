@@ -1,78 +1,55 @@
-import twilio from 'twilio'
+import { URL } from 'url';
+import twilio, { validateRequest } from 'twilio';
+import { requireEnv } from '../utils/env';
 
-const accountSid = process.env.TWILIO_ACCOUNT_SID || ''
-const authToken = process.env.TWILIO_AUTH_TOKEN || ''
-const phoneNumber = process.env.TWILIO_PHONE_NUMBER || ''
+const accountSid = requireEnv('TWILIO_ACCOUNT_SID');
+const authToken = requireEnv('TWILIO_AUTH_TOKEN');
+const fromNumber = requireEnv('TWILIO_PHONE_NUMBER');
+const sessionManagerHost = requireEnv('SESSION_MANAGER_HOST');
+const statusCallbackUrl = requireEnv('TWILIO_STATUS_CALLBACK_URL');
 
-const client = twilio(accountSid, authToken)
+const client = twilio(accountSid, authToken);
 
-export interface CallOptions {
-  to: string
-  inquiryType: 'ca' | 'salon'
-  inquiryDetails: string
-  callerName?: string
-  callerPhone?: string
-}
-
-/**
- * Initiate a voice call using Twilio
- * Returns the call SID for tracking
- */
-export const initiateCall = async (options: CallOptions): Promise<string> => {
-  try {
-    const baseUrl = process.env.API_BASE_URL || 'https://your-api-url.com'
-    const webhookUrl = `${baseUrl}/api/twilio/voice?inquiryType=${options.inquiryType}&inquiryDetails=${encodeURIComponent(options.inquiryDetails)}`
-    
-    const call = await client.calls.create({
-      to: options.to,
-      from: phoneNumber,
-      url: webhookUrl,
-      method: 'POST',
-      statusCallback: `${baseUrl}/api/twilio/voice/status`,
-      statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
-      statusCallbackMethod: 'POST',
-      record: false, // Set to true if you want to record calls
-    })
-
-    return call.sid
-  } catch (error: any) {
-    console.error('Error initiating Twilio call:', error)
-    throw new Error(`Failed to initiate call: ${error.message}`)
+function websocketBase(): string {
+  if (/^wss?:\/\//.test(sessionManagerHost)) {
+    return sessionManagerHost.replace(/\/$/, '');
   }
+  if (/^https?:\/\//.test(sessionManagerHost)) {
+    return sessionManagerHost.replace('https://', 'wss://').replace('http://', 'ws://').replace(/\/$/, '');
+  }
+  return `wss://${sessionManagerHost.replace(/\/$/, '')}`;
 }
 
-/**
- * Generate TwiML for voice response
- * This is used in the Twilio webhook to control the call flow
- */
-export const generateVoiceTwiML = (text: string): string => {
-  // Use Twilio's neural voice for more human-like speech
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Say voice="alice" language="en-US">
-    ${text}
-  </Say>
-</Response>`
+function buildStreamUrl(leadId: string, inquiryType: 'ca' | 'salon'): string {
+  const url = new URL(websocketBase());
+  url.pathname = '/twilio';
+  url.searchParams.set('leadId', leadId);
+  url.searchParams.set('inquiryType', inquiryType);
+  return url.toString();
 }
 
-/**
- * Generate TwiML for gathering user input
- */
-export const generateGatherTwiML = (prompt: string, action: string, timeout: number = 5): string => {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Gather input="speech" timeout="${timeout}" language="en-US" action="${action}" method="POST" speechTimeout="auto">
-    <Say voice="alice" language="en-US">${prompt}</Say>
-  </Gather>
-  <Say voice="alice" language="en-US">I didn't catch that. Let me try again.</Say>
-  <Redirect>${action}</Redirect>
-</Response>`
+export interface OutboundCallOptions {
+  to: string;
+  leadId: string;
+  inquiryType: 'ca' | 'salon';
 }
 
-export const twilioClient = {
-  initiateCall,
-  generateVoiceTwiML,
-  generateGatherTwiML,
-  client,
+export async function startOutboundCall({ to, leadId, inquiryType }: OutboundCallOptions) {
+  const streamUrl = buildStreamUrl(leadId, inquiryType);
+  const twiml = `<Response><Start><Stream url="${streamUrl}" /></Start><Say>Connecting you to the AISalesAgent.</Say></Response>`;
+  return client.calls.create({
+    to,
+    from: fromNumber,
+    twiml,
+    statusCallback: `${statusCallbackUrl}?leadId=${leadId}`,
+    statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed']
+  });
 }
 
+export function isTwilioSignatureValid(args: {
+  url: string;
+  params: Record<string, string | undefined>;
+  signature?: string;
+}): boolean {
+  return validateRequest(authToken, args.signature ?? '', args.url, args.params);
+}

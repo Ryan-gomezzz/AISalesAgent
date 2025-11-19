@@ -1,95 +1,100 @@
-import { Request, Response, NextFunction } from 'express'
-import { twilioClient } from '../services/twilioClient'
-import { v4 as uuidv4 } from 'uuid'
+import { URL } from 'url';
+import { APIGatewayProxyHandlerV2, SQSEvent } from 'aws-lambda';
+import { v4 as uuid } from 'uuid';
+import { ZodError } from 'zod';
+import { putLead, updateLeadStatus } from '../services/dynamoClient';
+import { enqueueCallJob } from '../services/sqsClient';
+import { startOutboundCall } from '../services/twilioClient';
+import { CallQueueMessage, LeadRecord } from '../types/lead';
+import { requireEnv } from '../utils/env';
+import { badRequest, internalError, ok } from '../utils/http';
+import { leadFormSchema } from '../utils/validators';
 
-interface SubmitInquiryRequest {
-  inquiryType: 'ca' | 'salon'
-  phoneNumber: string
-  name?: string
-  inquiryDetails: string
-}
+const sessionManagerHost = requireEnv('SESSION_MANAGER_HOST');
 
-/**
- * Submit an inquiry and initiate a phone call
- */
-export const submitInquiryHandler = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  try {
-    const {
-      inquiryType,
-      phoneNumber,
-      name,
-      inquiryDetails,
-    }: SubmitInquiryRequest = req.body
-
-    // Validate input
-    if (!inquiryType || !['ca', 'salon'].includes(inquiryType)) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Invalid inquiry type. Must be "ca" or "salon"',
-      })
-    }
-
-    if (!phoneNumber || !phoneNumber.trim()) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Phone number is required',
-      })
-    }
-
-    if (!inquiryDetails || !inquiryDetails.trim()) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Inquiry details are required',
-      })
-    }
-
-    // Validate frontend key
-    const frontendKey = req.headers['x-frontend-key'] as string
-    const expectedKey = process.env.FRONTEND_KEY || 'dev-key'
-    if (frontendKey !== expectedKey) {
-      return res.status(401).json({
-        status: 'error',
-        message: 'Unauthorized',
-      })
-    }
-
-    // Format phone number (ensure it starts with +)
-    const formattedPhone = phoneNumber.startsWith('+') 
-      ? phoneNumber 
-      : `+${phoneNumber.replace(/\D/g, '')}`
-
-    // Initiate Twilio call
-    let callSid: string
-    try {
-      callSid = await twilioClient.initiateCall({
-        to: formattedPhone,
-        inquiryType,
-        inquiryDetails,
-        callerName: name,
-        callerPhone: formattedPhone,
-      })
-    } catch (callError: any) {
-      console.error('Error initiating call:', callError)
-      return res.status(500).json({
-        status: 'error',
-        message: 'Failed to initiate call. Please check the phone number and try again.',
-      })
-    }
-
-    // Return success response
-    res.json({
-      status: 'success',
-      message: 'Call initiated successfully',
-      callSid,
-      inquiryId: uuidv4(),
-    })
-  } catch (error: any) {
-    console.error('Error in submitInquiry handler:', error)
-    next(error)
+function normalizeSessionManagerHost(): string {
+  if (/^wss?:\/\//.test(sessionManagerHost)) {
+    return sessionManagerHost.replace(/\/$/, '');
   }
+  if (/^https?:\/\//.test(sessionManagerHost)) {
+    return sessionManagerHost.replace('https://', 'wss://').replace('http://', 'ws://').replace(/\/$/, '');
+  }
+  return `wss://${sessionManagerHost.replace(/\/$/, '')}`;
 }
 
+function buildSessionWebhook(params: Record<string, string>): string {
+  const base = normalizeSessionManagerHost();
+  const url = new URL(base);
+  url.pathname = '/twilio';
+  Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
+  return url.toString();
+}
+
+export const submitInquiryHandler: APIGatewayProxyHandlerV2 = async (event) => {
+  try {
+    if (!event.body) {
+      return badRequest('Body is required');
+    }
+    const parsed = leadFormSchema.parse(JSON.parse(event.body));
+    const leadId = uuid();
+    const now = new Date().toISOString();
+    const sessionWebhook = buildSessionWebhook({ leadId, inquiryType: parsed.inquiryType });
+
+    const record: LeadRecord = {
+      leadId,
+      name: parsed.name,
+      phoneNumber: parsed.phoneNumber,
+      inquiryType: parsed.inquiryType,
+      inquiryDetails: parsed.inquiryDetails,
+      consent: parsed.consent,
+      sessionWebhook,
+      status: 'queued',
+      createdAt: now,
+      updatedAt: now,
+      initialMessage: parsed.inquiryDetails
+    };
+
+    await putLead(record);
+
+    const job: CallQueueMessage = {
+      leadId,
+      phoneNumber: parsed.phoneNumber,
+      inquiryType: parsed.inquiryType,
+      sessionWebhook
+    };
+    await enqueueCallJob(job);
+
+    return ok({ status: 'success', inquiryId: leadId });
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return badRequest('Validation failed');
+    }
+    console.error('submitInquiry error', error);
+    return internalError('Unable to submit inquiry');
+  }
+};
+
+export const initiateCallWorker = async (event: SQSEvent) => {
+  for (const record of event.Records) {
+    let message: CallQueueMessage | undefined;
+    try {
+      message = JSON.parse(record.body) as CallQueueMessage;
+      const call = await startOutboundCall({
+        to: message.phoneNumber,
+        leadId: message.leadId,
+        inquiryType: message.inquiryType
+      });
+      await updateLeadStatus(message.leadId, 'calling', {
+        callSid: call.sid,
+        sessionWebhook: message.sessionWebhook
+      });
+    } catch (err) {
+      console.error('call worker failed', err);
+      if (message?.leadId) {
+        await updateLeadStatus(message.leadId, 'failed', {
+          failureReason: (err as Error).message
+        });
+      }
+    }
+  }
+};

@@ -1,172 +1,119 @@
-import React, { useState } from 'react'
-import { apiService } from '../services/apiService'
-import './InquiryForm.css'
+import { FormEvent, useState } from 'react';
+import { submitInquiry } from '../lib/api';
+import clsx from 'clsx';
 
-interface InquiryFormProps {
-  onSuccess?: (callSid: string) => void
-}
+type InquiryType = 'ca' | 'salon';
 
-export const InquiryForm: React.FC<InquiryFormProps> = ({ onSuccess }) => {
-  const [inquiryType, setInquiryType] = useState<'ca' | 'salon' | null>(null)
-  const [name, setName] = useState('')
-  const [phoneNumber, setPhoneNumber] = useState('')
-  const [inquiryDetails, setInquiryDetails] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
+const defaultState = {
+  name: '',
+  phoneNumber: '',
+  inquiryType: 'ca' as InquiryType,
+  inquiryDetails: '',
+  consent: false
+};
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setIsSubmitting(true)
+export function InquiryForm() {
+  const [form, setForm] = useState(defaultState);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-    if (!inquiryType) {
-      setError('Please select an inquiry type')
-      setIsSubmitting(false)
-      return
-    }
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    const { name, value, type, checked } = e.target;
+    setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  };
 
-    if (!phoneNumber.trim()) {
-      setError('Phone number is required')
-      setIsSubmitting(false)
-      return
-    }
-
-    if (!inquiryDetails.trim()) {
-      setError('Please provide inquiry details')
-      setIsSubmitting(false)
-      return
-    }
-
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setLoading(true);
+    setError(null);
     try {
-      const response = await apiService.submitInquiry({
-        inquiryType,
-        phoneNumber: phoneNumber.trim(),
-        name: name.trim() || undefined,
-        inquiryDetails: inquiryDetails.trim(),
-      })
-
-      setSuccess(true)
-      if (onSuccess) {
-        onSuccess(response.callSid)
-      }
-
-      // Reset form after 3 seconds
-      setTimeout(() => {
-        setInquiryType(null)
-        setName('')
-        setPhoneNumber('')
-        setInquiryDetails('')
-        setSuccess(false)
-      }, 3000)
-    } catch (err: any) {
-      console.error('Error submitting inquiry:', err)
-      setError(err.response?.data?.message || 'Failed to submit inquiry. Please try again.')
+      const response = await submitInquiry({
+        name: form.name || undefined,
+        phoneNumber: form.phoneNumber,
+        inquiryType: form.inquiryType,
+        inquiryDetails: form.inquiryDetails,
+        consent: form.consent
+      });
+      setResult(`Inquiry submitted! ID: ${response.inquiryId}`);
+      setForm(defaultState);
+    } catch (err) {
+      setError('Unable to submit inquiry. Please check your details and try again.');
     } finally {
-      setIsSubmitting(false)
+      setLoading(false);
     }
-  }
-
-  if (success) {
-    return (
-      <div className="inquiry-form success-message">
-        <div className="success-icon">✓</div>
-        <h2>Call Initiated!</h2>
-        <p>Our AI agent is calling you now. Please answer your phone.</p>
-        <p className="sub-text">You'll receive a call from our number shortly.</p>
-      </div>
-    )
-  }
+  };
 
   return (
-    <div className="inquiry-form">
-      <h2>Get Started</h2>
-      <p className="form-subtitle">Submit your inquiry and our AI agent will call you</p>
-
-      <form onSubmit={handleSubmit}>
-        <div className="form-group">
-          <label>What are you inquiring about? *</label>
-          <div className="inquiry-type-buttons">
-            <button
-              type="button"
-              className={`inquiry-type-btn ${inquiryType === 'ca' ? 'active' : ''}`}
-              onClick={() => setInquiryType('ca')}
-            >
-              <span className="icon">📊</span>
-              <span className="label">Chartered Accountancy</span>
-              <span className="sub-label">Business registration, taxes, compliance</span>
-            </button>
-            <button
-              type="button"
-              className={`inquiry-type-btn ${inquiryType === 'salon' ? 'active' : ''}`}
-              onClick={() => setInquiryType('salon')}
-            >
-              <span className="icon">💇</span>
-              <span className="label">Salon Appointment</span>
-              <span className="sub-label">Book your appointment</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="name">Your Name (Optional)</label>
-          <input
-            type="text"
-            id="name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="John Doe"
-            disabled={isSubmitting}
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="phone">Phone Number *</label>
-          <input
-            type="tel"
-            id="phone"
-            value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
-            placeholder="+1234567890"
-            required
-            disabled={isSubmitting}
-          />
-          <small>Include country code (e.g., +1 for US, +91 for India)</small>
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="details">Inquiry Details *</label>
-          <textarea
-            id="details"
-            value={inquiryDetails}
-            onChange={(e) => setInquiryDetails(e.target.value)}
-            placeholder="Tell us about your inquiry. What do you need help with?"
-            rows={4}
-            required
-            disabled={isSubmitting}
-          />
-        </div>
-
-        {error && (
-          <div className="error-message">
-            {error}
-          </div>
-        )}
-
-        <button
-          type="submit"
-          className="submit-btn"
-          disabled={isSubmitting || !inquiryType || !phoneNumber.trim() || !inquiryDetails.trim()}
+    <form onSubmit={handleSubmit} className="space-y-6 rounded-2xl bg-slate-800 p-6 shadow-xl shadow-black/20">
+      <div>
+        <label className="text-sm font-medium text-slate-300">Name</label>
+        <input
+          className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2"
+          name="name"
+          value={form.name}
+          onChange={handleChange}
+          placeholder="Optional"
+        />
+      </div>
+      <div>
+        <label className="text-sm font-medium text-slate-300">Phone (E.164)</label>
+        <input
+          className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2"
+          name="phoneNumber"
+          value={form.phoneNumber}
+          onChange={handleChange}
+          placeholder="+18885551212"
+          required
+        />
+      </div>
+      <div>
+        <label className="text-sm font-medium text-slate-300">Inquiry Type</label>
+        <select
+          className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2"
+          name="inquiryType"
+          value={form.inquiryType}
+          onChange={handleChange}
         >
-          {isSubmitting ? 'Initiating Call...' : 'Submit & Receive Call'}
-        </button>
-
-        <p className="form-footer">
-          By submitting, you agree to receive a call from our AI agent. 
-          The call will begin shortly after submission.
-        </p>
-      </form>
-    </div>
-  )
+          <option value="ca">Creative Automation</option>
+          <option value="salon">Salon</option>
+        </select>
+      </div>
+      <div>
+        <label className="text-sm font-medium text-slate-300">Details</label>
+        <textarea
+          className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2"
+          name="inquiryDetails"
+          value={form.inquiryDetails}
+          onChange={handleChange}
+          rows={4}
+          placeholder="Tell us about your needs"
+          required
+        />
+      </div>
+      <label className="flex items-start space-x-3 text-sm text-slate-300">
+        <input
+          type="checkbox"
+          name="consent"
+          checked={form.consent}
+          onChange={handleChange}
+          className="mt-1"
+        />
+        <span>I consent to receive an AI-driven phone call and understand the call is recorded.</span>
+      </label>
+      {error && <p className="text-sm text-rose-400">{error}</p>}
+      {result && <p className="text-sm text-emerald-400">{result}</p>}
+      <button
+        disabled={loading}
+        className={clsx(
+          'w-full rounded-lg bg-cyan-400/90 px-4 py-2 font-semibold text-slate-900 transition',
+          loading && 'opacity-70'
+        )}
+      >
+        {loading ? 'Submitting…' : 'Submit Inquiry'}
+      </button>
+    </form>
+  );
 }
-
